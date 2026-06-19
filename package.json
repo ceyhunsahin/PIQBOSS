@@ -1,0 +1,24 @@
+{
+  "name": "piqboss-arge",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Piqboss — SADECE FRONTEND (Expo mobil) + shared tipler. Backend = mevcut off (piqoff).",
+  "workspaces": [
+    "packages/*",
+    "apps/*"
+  ],
+  "scripts": {
+    "mobile:start": "npm run start --workspace apps/boss-mobile",
+    "shared:build": "npm run build --workspace packages/shared",
+    "typecheck": "npm run typecheck --workspaces --if-present",
+    "sync-boss-lang": "node scripts/sync-boss-lang.mjs",
+    "faz0:inventory": "node tools/extract-sql-inventory.mjs"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "overrides": {
+    "react": "19.2.3",
+    "react-dom": "19.2.3"
+  }
+}

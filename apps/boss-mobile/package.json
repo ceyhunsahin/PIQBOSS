@@ -1,0 +1,45 @@
+{
+  "name": "@piqboss/boss-mobile",
+  "version": "0.1.0",
+  "private": true,
+  "main": "expo-router/entry",
+  "scripts": {
+    "start": "expo start",
+    "android": "expo run:android --device",
+    "android:apk": "cd android && gradlew.bat assembleRelease",
+    "android:apk:debug": "cd android && gradlew.bat assembleDebug",
+    "ios": "expo run:ios",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@expo/vector-icons": "^15.0.2",
+    "@piqboss/shared": "*",
+    "@react-native-community/datetimepicker": "9.1.0",
+    "@shopify/flash-list": "2.0.2",
+    "expo": "^56.0.0",
+    "expo-constants": "~56.0.18",
+    "expo-device": "~56.0.4",
+    "expo-linear-gradient": "~56.0.4",
+    "expo-linking": "~56.0.14",
+    "expo-localization": "~56.0.6",
+    "expo-notifications": "~56.0.18",
+    "expo-print": "~56.0.4",
+    "expo-router": "~56.2.11",
+    "expo-secure-store": "~56.0.4",
+    "expo-sharing": "~56.0.18",
+    "expo-status-bar": "~56.0.4",
+    "i18next": "^23.15.1",
+    "intl-pluralrules": "^2.0.1",
+    "react": "19.2.3",
+    "react-i18next": "^15.0.2",
+    "react-native": "0.85.3",
+    "react-native-safe-area-context": "~5.7.0",
+    "react-native-screens": "4.25.2",
+    "socket.io-client": "^4.8.0",
+    "zustand": "^5.0.0"
+  },
+  "devDependencies": {
+    "@types/react": "~19.2.0",
+    "typescript": "~6.0.3"
+  }
+}

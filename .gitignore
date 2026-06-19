@@ -1,0 +1,34 @@
+# deps
+node_modules/
+.pnp.*
+.yarn/*
+
+# build
+dist/
+build/
+*.tsbuildinfo
+
+# expo
+.expo/
+.expo-shared/
+web-build/
+apps/boss-mobile/android/
+apps/boss-mobile/ios/
+
+# env / secrets
+.env
+.env.*
+!.env.example
+
+# logs
+*.log
+npm-debug.*
+yarn-debug.*
+yarn-error.*
+
+# os / editor
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/*
+!.vscode/extensions.json
