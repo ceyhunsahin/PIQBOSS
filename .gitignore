@@ -18,6 +18,8 @@ apps/boss-mobile/ios/
 apps/boss-mobile/android-build*
 apps/boss-mobile/build_view.json
 apps/boss-mobile/play-service-account.json
+apps/boss-mobile/google-services.json
+apps/boss-mobile/GoogleService-Info.plist
 /android/
 /app.json
 .npm-cache/
