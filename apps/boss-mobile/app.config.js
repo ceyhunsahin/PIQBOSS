@@ -24,6 +24,19 @@ module.exports = ({ config }) => {
     "GOOGLE_SERVICES_JSON",
     "./google-services.json"
   );
+  const isEasBuild = process.env.EAS_BUILD === "true";
+
+  if (isEasBuild && !iosGoogleServicesFile) {
+    throw new Error(
+      "Missing iOS Firebase config. Set GOOGLE_SERVICE_INFO_PLIST as an EAS file secret."
+    );
+  }
+
+  if (isEasBuild && !androidGoogleServicesFile) {
+    throw new Error(
+      "Missing Android Firebase config. Set GOOGLE_SERVICES_JSON as an EAS file secret."
+    );
+  }
 
   return {
     ...config,
