@@ -5,21 +5,31 @@
     "version": "1.0.0",
     "orientation": "portrait",
     "scheme": "piqboss",
+    "icon": "./assets/icon.png",
     "userInterfaceStyle": "automatic",
     "ios": {
       "supportsTablet": false,
       "bundleIdentifier": "com.piqsoft.boss",
       "googleServicesFile": "./GoogleService-Info.plist",
       "entitlements": {
-        "aps-environment": "development"
+        "aps-environment": "production"
       },
       "infoPlist": {
-        "UIBackgroundModes": ["remote-notification"]
-      }
+        "UIBackgroundModes": [
+          "remote-notification"
+        ],
+        "ITSAppUsesNonExemptEncryption": false
+      },
+      "buildNumber": "3"
     },
     "android": {
       "package": "com.piqpos.boss",
-      "googleServicesFile": "./google-services.json"
+      "googleServicesFile": "./google-services.json",
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#141828"
+      },
+      "versionCode": 10
     },
     "plugins": [
       "expo-router",
@@ -27,18 +37,35 @@
       "expo-localization",
       "@react-native-community/datetimepicker",
       [
+        "expo-splash-screen",
+        {
+          "image": "./assets/splash-icon.png",
+          "resizeMode": "contain",
+          "backgroundColor": "#141828"
+        }
+      ],
+      [
         "expo-notifications",
         {
           "color": "#0047AB"
         }
+      ],
+      [
+        "expo-build-properties",
+        {
+          "android": {
+            "usesCleartextTraffic": false
+          }
+        }
       ]
     ],
     "extra": {
-      "apiUrl": "http://192.168.1.10:80",
+      "mobileVersionUrl": "https://piqhub.piqsoft.com/api/mobile-version",
+      "router": {},
       "eas": {
-        "projectId": "7134f944-b22e-474f-94c5-50c4d38758e5"
+        "projectId": "ae2939cc-df71-4a5d-8037-6bb93233e6d9"
       }
     },
-    "owner": "ceyhun2086"
+    "owner": "piqsoft"
   }
 }

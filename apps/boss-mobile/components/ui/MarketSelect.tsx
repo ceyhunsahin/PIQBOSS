@@ -1,10 +1,10 @@
-import { useCallback, useEffect, useState } from 'react';
-import { ActivityIndicator, Alert, Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { ActivityIndicator, Alert, Dimensions, Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
+import { useRouter, type Href } from 'expo-router';
 import { useTranslation } from 'react-i18next';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuth } from '@/lib/auth';
+import { SECTOR_ROUTE } from '@/lib/menu';
 import {
   loadActiveProfileId,
   loadServerProfiles,
@@ -15,14 +15,17 @@ import { ms } from '@/lib/responsive';
 import { textSharp } from '@/lib/typography';
 import { theme } from '@/lib/theme';
 
+type Anchor = { x: number; y: number; width: number; height: number };
+
 export function MarketSelect()
 {
   const router = useRouter();
   const { t } = useTranslation();
-  const insets = useSafeAreaInsets();
   const switchMarket = useAuth((s) => s.switchMarket);
   const authStatus = useAuth((s) => s.status);
+  const triggerRef = useRef<View>(null);
   const [open, setOpen] = useState(false);
+  const [anchor, setAnchor] = useState<Anchor | null>(null);
   const [profiles, setProfiles] = useState<ServerProfile[]>([]);
   const [activeId, setActiveId] = useState<string | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
@@ -37,6 +40,15 @@ export function MarketSelect()
     void refresh();
   }, [refresh, authStatus]);
   const active = profiles.find((x) => x.id === activeId) ?? profiles[0];
+  const openMenu = useCallback(() =>
+  {
+    void refresh();
+    triggerRef.current?.measureInWindow((x, y, width, height) =>
+    {
+      setAnchor({ x, y, width, height });
+      setOpen(true);
+    });
+  }, [refresh]);
   const onSelect = useCallback(async (profile: ServerProfile) =>
   {
     if(profile.id === activeId)
@@ -53,62 +65,62 @@ export function MarketSelect()
       router.replace('/(auth)/login');
       return;
     }
+    if(res.reverted)
+    {
+      // Secilen markete gecilemedi, son calisan markete geri baglanildi. Aktif market degismez.
+      Alert.alert(t('msgWarning'), `${t('msgSocketConnectFailed')}\n${t('marketReconnected')} ${res.revertedLabel ?? ''}`.trim());
+      return;
+    }
     if(!res.ok)
     {
-      Alert.alert(t('msgWarning'), res.error ?? t('msgWarning'));
+      Alert.alert(t('msgWarning'), t('msgSocketConnectFailed'));
       return;
     }
     setActiveId(profile.id);
+    router.replace(SECTOR_ROUTE[profile.module] as Href);
   }, [activeId, router, switchMarket, t]);
   if(profiles.length < 2)
   {
     return null;
   }
+  const screen = Dimensions.get('window');
+  const menuWidth = anchor ? Math.min(Math.max(anchor.width, ms(220)), screen.width - ms(24)) : ms(220);
+  const menuLeft = anchor ? Math.min(anchor.x, screen.width - menuWidth - ms(12)) : ms(12);
+  const menuTop = anchor ? anchor.y + anchor.height + ms(6) : 0;
   return (
     <>
-      <Pressable style={styles.trigger} onPress={() => { void refresh(); setOpen(true); }} hitSlop={6}>
-        <Ionicons name="storefront-outline" size={ms(13)} color={theme.color.accentLight} />
+      <Pressable ref={triggerRef} style={styles.trigger} onPress={openMenu} hitSlop={6}>
+        <Ionicons name="storefront-outline" size={ms(14)} color={theme.color.accentLight} />
         <Text style={[textSharp, styles.triggerText]} numberOfLines={1}>{active?.label ?? t('marketTitle')}</Text>
-        <Ionicons name="chevron-down" size={ms(12)} color={theme.color.textOnInkMuted} />
+        <Ionicons name={open ? 'chevron-up' : 'chevron-down'} size={ms(13)} color={theme.color.textOnInkMuted} />
       </Pressable>
-      <Modal visible={open} animationType="slide" transparent onRequestClose={() => setOpen(false)}>
-        <View style={styles.overlay}>
-          <Pressable style={styles.backdrop} onPress={() => setOpen(false)} />
-          <View style={[styles.sheet, { paddingBottom: Math.max(insets.bottom, theme.space.lg) }]}>
-            <View style={styles.handle} />
-            <View style={styles.head}>
-              <Text style={styles.sheetTitle}>{t('marketTitle')}</Text>
-              <Pressable style={styles.closeBtn} onPress={() => setOpen(false)} hitSlop={10}>
-                <Ionicons name="close" size={ms(22)} color={theme.color.textSecondary} />
-              </Pressable>
-            </View>
-            <ScrollView contentContainerStyle={styles.options} showsVerticalScrollIndicator={false}>
-              {profiles.map((profile) =>
-              {
-                const selected = profile.id === activeId;
-                const loading = busyId === profile.id;
-                return (
-                  <Pressable
-                    key={profile.id}
-                    style={[styles.option, selected && styles.optionActive]}
-                    onPress={() => void onSelect(profile)}
-                    disabled={busyId !== null}
-                  >
-                    <View style={styles.optionMain}>
-                      <Text style={[styles.optionText, selected && styles.optionTextActive]} numberOfLines={1}>{profile.label}</Text>
-                      <Text style={styles.optionSub} numberOfLines={1}>{serverHost(profile.url)}{profile.db ? ` · ${profile.db}` : ''}</Text>
-                    </View>
-                    {loading ?
-                      <ActivityIndicator size="small" color={theme.color.primary} /> :
-                      (selected ? <Ionicons name="checkmark-circle" size={20} color={theme.color.primary} /> : null)}
-                  </Pressable>
-                );
-              })}
-            </ScrollView>
-            <Pressable style={styles.cancelBtn} onPress={() => setOpen(false)}>
-              <Text style={styles.cancelText}>{t('btnCancel')}</Text>
-            </Pressable>
-          </View>
+      <Modal visible={open} animationType="fade" transparent onRequestClose={() => setOpen(false)}>
+        <Pressable style={styles.backdrop} onPress={() => setOpen(false)} />
+        <View style={[styles.menu, { top: menuTop, left: menuLeft, width: menuWidth }]}>
+          <ScrollView style={styles.menuScroll} showsVerticalScrollIndicator={false} bounces={false}>
+            {profiles.map((profile, idx) =>
+            {
+              const selected = profile.id === activeId;
+              const loading = busyId === profile.id;
+              return (
+                <Pressable
+                  key={profile.id}
+                  style={[styles.option, idx > 0 && styles.optionDivider, selected && styles.optionActive]}
+                  onPress={() => void onSelect(profile)}
+                  disabled={busyId !== null}
+                >
+                  <Ionicons name="storefront" size={ms(17)} color={selected ? theme.color.primary : theme.color.textMuted} />
+                  <View style={styles.optionMain}>
+                    <Text style={[styles.optionText, selected && styles.optionTextActive]} numberOfLines={1}>{profile.label}</Text>
+                    <Text style={styles.optionSub} numberOfLines={1}>{serverHost(profile.url)}{profile.db ? ` - ${profile.db}` : ''}</Text>
+                  </View>
+                  {loading ?
+                    <ActivityIndicator size="small" color={theme.color.primary} /> :
+                    (selected ? <Ionicons name="checkmark-circle" size={ms(18)} color={theme.color.primary} /> : null)}
+                </Pressable>
+              );
+            })}
+          </ScrollView>
         </View>
       </Modal>
     </>
@@ -119,87 +131,54 @@ const styles = StyleSheet.create({
   trigger: {
     flexDirection: 'row',
     alignItems: 'center',
-    flexShrink: 1,
-    minWidth: 0,
-    gap: ms(4),
-    paddingHorizontal: ms(8),
-    paddingVertical: ms(2),
+    alignSelf: 'flex-start',
+    maxWidth: '100%',
+    gap: ms(5),
+    paddingHorizontal: ms(9),
+    paddingVertical: ms(5),
     borderRadius: ms(10),
-    backgroundColor: 'rgba(255,255,255,0.10)'
+    backgroundColor: 'rgba(255,255,255,0.12)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.16)'
   },
   triggerText: {
     color: theme.color.textOnInk,
-    fontSize: theme.fontSize.xs,
+    fontSize: theme.fontSize.sm,
     fontWeight: '700',
     flexShrink: 1
-  },
-  overlay: {
-    flex: 1,
-    justifyContent: 'flex-end'
   },
   backdrop: {
     position: 'absolute',
     top: 0,
-    left: 0,
     right: 0,
     bottom: 0,
-    backgroundColor: theme.color.overlay
+    left: 0,
+    backgroundColor: 'transparent'
   },
-  sheet: {
+  menu: {
+    position: 'absolute',
     backgroundColor: theme.color.surface,
-    borderTopLeftRadius: theme.radius.xl,
-    borderTopRightRadius: theme.radius.xl,
-    paddingHorizontal: theme.space.lg,
-    paddingTop: theme.space.sm,
-    maxHeight: '70%',
-    ...theme.shadow.sheet
+    borderRadius: theme.radius.md,
+    borderWidth: 1,
+    borderColor: theme.color.border,
+    overflow: 'hidden',
+    ...theme.shadow.card
   },
-  handle: {
-    alignSelf: 'center',
-    width: ms(40),
-    height: ms(4),
-    borderRadius: ms(2),
-    backgroundColor: theme.color.border,
-    marginBottom: theme.space.md
-  },
-  head: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: theme.space.md
-  },
-  closeBtn: {
-    width: ms(36),
-    height: ms(36),
-    borderRadius: ms(18),
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: theme.color.surfaceMuted
-  },
-  sheetTitle: {
-    flex: 1,
-    fontSize: theme.fontSize.md,
-    fontWeight: '800',
-    color: theme.color.text
-  },
-  options: {
-    gap: theme.space.sm,
-    paddingBottom: theme.space.sm
+  menuScroll: {
+    maxHeight: ms(280)
   },
   option: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
     gap: theme.space.sm,
     paddingHorizontal: theme.space.md,
-    paddingVertical: theme.space.md,
-    borderRadius: theme.radius.sm,
-    borderWidth: 1,
-    borderColor: theme.color.border,
-    backgroundColor: theme.color.surfaceMuted
+    paddingVertical: theme.space.sm
+  },
+  optionDivider: {
+    borderTopWidth: 1,
+    borderTopColor: theme.color.border
   },
   optionActive: {
-    borderColor: theme.color.primary,
     backgroundColor: theme.color.primarySoft
   },
   optionMain: {
@@ -215,18 +194,8 @@ const styles = StyleSheet.create({
     color: theme.color.primaryDark
   },
   optionSub: {
-    marginTop: 2,
+    marginTop: 1,
     fontSize: theme.fontSize.xs,
     color: theme.color.textMuted
-  },
-  cancelBtn: {
-    marginTop: theme.space.sm,
-    alignItems: 'center',
-    paddingVertical: theme.space.md
-  },
-  cancelText: {
-    fontSize: theme.fontSize.sm,
-    fontWeight: '700',
-    color: theme.color.textSecondary
   }
 });

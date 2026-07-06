@@ -5,6 +5,8 @@ export * from './dto/config.js';
 export * from './dto/sqlSafe.js';
 export * from './dto/prmAcs.js';
 export * from './dto/posDashboard.js';
+export * from './dto/offDashboard.js';
+export * from './dto/restDashboard.js';
 export * from './queryIds.js';
 export * from './extraQueryIds.js';
 export * from './detailQueryIds.js';

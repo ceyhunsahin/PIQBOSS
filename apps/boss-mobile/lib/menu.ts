@@ -15,18 +15,15 @@ const BOSS_SECTORS: MenuItem[] = [
   { id: 'dashRest', module: 'boss', sector: 'rest', route: '/(main)/boss/rest', labelKey: 'menu.dashRest' }
 ];
 
-const RESP_MENU: MenuItem[] = [
-  { id: 'respHome', module: 'resp', route: '/(main)/resp/index', labelKey: 'menu.dash' }
-];
+export const SECTOR_ROUTE: Record<'pos' | 'off' | 'rest', MenuItem['route']> = {
+  pos: '/(main)/boss/pos',
+  off: '/(main)/boss/off',
+  rest: '/(main)/boss/rest'
+};
 
 function hasBossApp(userApp?: string): boolean
 {
   return (userApp ?? '').toUpperCase().includes('BOSS');
-}
-
-function hasRespApp(userApp?: string): boolean
-{
-  return (userApp ?? '').toUpperCase().includes('RESP');
 }
 
 function sectorAllowed(pageId: string, accessRows: AccessRow[]): boolean
@@ -51,10 +48,6 @@ export function buildMenu(userApp?: string, accessRows: AccessRow[] = []): MenuI
         items.push(sector);
       }
     }
-  }
-  if(hasRespApp(userApp))
-  {
-    items.push(...RESP_MENU);
   }
   if(items.length === 0)
   {

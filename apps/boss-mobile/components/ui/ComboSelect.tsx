@@ -54,11 +54,10 @@ export const ComboSelect = memo(function ComboSelect({ label, placeholder, optio
           <Ionicons name="chevron-down" size={ms(18)} color={theme.color.textMuted} />
         </Pressable>
       </View>
-      <Modal visible={open} transparent animationType="slide" onRequestClose={close}>
+      <Modal visible={open} transparent animationType="fade" onRequestClose={close}>
         <View style={styles.overlay}>
           <Pressable style={styles.backdrop} onPress={close} />
-          <View style={[styles.sheet, { paddingBottom: Math.max(insets.bottom, theme.space.lg) }]}>
-            <View style={styles.handle} />
+          <View style={[styles.sheet, { paddingTop: Math.max(insets.top, theme.space.lg) }]}>
             <View style={styles.head}>
               <Text style={[textSharp, styles.sheetTitle]}>{label}</Text>
               <Pressable style={styles.closeBtn} onPress={close} hitSlop={10}>
@@ -88,6 +87,7 @@ export const ComboSelect = memo(function ComboSelect({ label, placeholder, optio
                 );
               })}
             </ScrollView>
+            <View style={styles.handle} />
           </View>
         </View>
       </Modal>
@@ -139,7 +139,7 @@ const styles = StyleSheet.create({
   },
   overlay: {
     flex: 1,
-    justifyContent: 'flex-end'
+    justifyContent: 'flex-start'
   },
   backdrop: {
     position: 'absolute',
@@ -151,10 +151,10 @@ const styles = StyleSheet.create({
   },
   sheet: {
     backgroundColor: theme.color.surface,
-    borderTopLeftRadius: theme.radius.xl,
-    borderTopRightRadius: theme.radius.xl,
+    borderBottomLeftRadius: theme.radius.xl,
+    borderBottomRightRadius: theme.radius.xl,
     paddingHorizontal: theme.space.lg,
-    paddingTop: theme.space.sm,
+    paddingBottom: theme.space.sm,
     maxHeight: '72%',
     ...theme.shadow.sheet
   },
@@ -164,7 +164,7 @@ const styles = StyleSheet.create({
     height: ms(4),
     borderRadius: ms(2),
     backgroundColor: theme.color.border,
-    marginBottom: theme.space.md
+    marginTop: theme.space.md
   },
   head: {
     flexDirection: 'row',

@@ -74,13 +74,15 @@ function Bar({ item, max, index, gradient, rank, progress }: {
 export const BarChartList = memo(function BarChartList({ items, color, colors, rank, emptyText }: Props)
 {
   const progress = useRef(new Animated.Value(0)).current;
+  // items her render'da yeni dizi referansi; animasyonu sadece gercek veri degisince tetikle (yoksa cift render gibi gozukur).
+  const sig = items.map((i) => `${i.label}:${i.value}`).join('|');
   useEffect(() =>
   {
     progress.setValue(0);
     const anim = Animated.timing(progress, { toValue: 1, duration: 620, useNativeDriver: false });
     anim.start();
     return () => anim.stop();
-  }, [progress, items]);
+  }, [progress, sig]);
   if(items.length === 0)
   {
     return <Text style={[textSharp, styles.empty]}>{emptyText ?? ''}</Text>;

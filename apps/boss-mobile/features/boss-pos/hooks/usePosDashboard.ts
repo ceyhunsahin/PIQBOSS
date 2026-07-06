@@ -123,10 +123,18 @@ export function usePosDashboard(range: DateRange, tab: PosTabId)
     {
       return;
     }
+    // Ay gercekten degistiyse onceki ayin verisini hemen temizle; yoksa yeni veri gelene
+    // kadar (~birkac sn) eski ay verisi yeni baslikla durur.
+    const prev = monthSelRef.current;
+    const monthChanged = prev.year !== year || prev.month !== month;
     monthSelRef.current = { year, month };
     monthlyAbortRef.current?.abort();
     const ac = new AbortController();
     monthlyAbortRef.current = ac;
+    if(monthChanged)
+    {
+      setMonthlyGroups([]);
+    }
     setMonthlyPending(true);
     try
     {
@@ -191,32 +199,34 @@ export function usePosDashboard(range: DateRange, tab: PosTabId)
       return;
     }
     need.forEach((g) => { loadedRef.current[g] = true; });
-    const tasks: Promise<unknown>[] = [];
+    // Once hafif KPI kumesi (sargable, ~1 dalga) cekilir; agir listeler havuzu (max 10) mesgul
+    // etmeden KPI kartlari aninda dolar. Listeler KPI bittikten sonra baslar (algilanan hiz artar).
     if(need.includes('kpis'))
     {
       setKpiPending(true);
       setLoadedCount(0);
-      tasks.push((async () =>
+      try
       {
-        try
+        await loadPosDashboardKpis(serverUrl, range, patch, signal);
+      }
+      catch(e)
+      {
+        if(!signal.aborted)
         {
-          await loadPosDashboardKpis(serverUrl, range, patch, signal);
+          setError(e as Error);
         }
-        catch(e)
+      }
+      finally
+      {
+        if(!signal.aborted)
         {
-          if(!signal.aborted)
-          {
-            setError(e as Error);
-          }
+          setKpiPending(false);
         }
-        finally
-        {
-          if(!signal.aborted)
-          {
-            setKpiPending(false);
-          }
-        }
-      })());
+      }
+    }
+    if(signal.aborted)
+    {
+      return;
     }
     const listGroups = need.filter((g) => g !== 'kpis');
     if(listGroups.length > 0)
@@ -263,9 +273,12 @@ export function usePosDashboard(range: DateRange, tab: PosTabId)
           .then((rows) => { if(!signal.aborted) { setHourly(rows); } })
           .catch(() => { if(!signal.aborted) { setHourly([]); } }));
       }
-      tasks.push(Promise.allSettled(subtasks).then(() => { if(!signal.aborted) { setListPending(false); } }));
+      await Promise.allSettled(subtasks);
+      if(!signal.aborted)
+      {
+        setListPending(false);
+      }
     }
-    await Promise.allSettled(tasks);
   }, [authStatus, serverUrl, range.from, range.to, patch, loadMonthly]);
   const reload = useCallback(async () =>
   {
@@ -316,8 +329,21 @@ export function usePosDashboard(range: DateRange, tab: PosTabId)
     (activeGroups.includes('kpis') && kpiPending) ||
     (activeGroups.some((g) => g !== 'kpis') && listPending) ||
     (tab === 'comparison' && comparePending);
+  // Ust global gosterge (donen icon + progress bar) sadece KRITIK fazi yansitmali:
+  // overview'da KPI yuklenirken; liste-bazli tab'larda ilk veri gelene kadar. Agir listeler
+  // gelmeye devam ederken ust spinner takili kalmamali (her bolumun kendi pending spinner'i var).
+  const hasListData =
+    trend.length > 0 || groups.length > 0 || products.length > 0 || payments.length > 0 ||
+    devices.length > 0 || vat.length > 0 || margins.length > 0 || butchers.length > 0 ||
+    lossItems.length > 0 || openTickets.length > 0 || hourly.length > 0 ||
+    monthlyGroups.length > 0 || promo != null;
+  const headerBusy =
+    (activeGroups.includes('kpis') && kpiPending) ||
+    (!activeGroups.includes('kpis') && activeGroups.some((g) => g !== 'kpis') && listPending && !hasListData) ||
+    (tab === 'comparison' && comparePending);
   return {
     busy,
+    headerBusy,
     data,
     trend,
     groups,

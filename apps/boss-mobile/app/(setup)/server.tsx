@@ -11,6 +11,7 @@ import { getDefaultServerUrl } from '@/lib/serverConfig';
 import { resetSocket } from '@/lib/socket';
 import {
   loadServerProfiles,
+  normalizeServerUrl,
   removeServerProfile,
   setActiveProfile,
   upsertServerProfile,
@@ -50,8 +51,8 @@ export default function ServerSetupScreen()
   };
   const onSave = async () =>
   {
-    const trimmed = url.trim().replace(/\/+$/, '');
-    if(!trimmed)
+    const normalized = normalizeServerUrl(url);
+    if(!normalized)
     {
       Alert.alert(t('msgWarning'), t('txtServerAddressExample'));
       return;
@@ -61,11 +62,12 @@ export default function ServerSetupScreen()
       resetSocket();
       const next = await upsertServerProfile({
         id: editingId ?? undefined,
-        url: trimmed,
-        label: label.trim() || trimmed,
-        db: db.trim()
+        url: normalized,
+        label: label.trim() || normalized,
+        db: db.trim(),
+        module: profiles.find((x) => x.id === editingId)?.module ?? 'pos'
       });
-      const saved = next.find((x) => x.url === trimmed) ?? next[next.length - 1];
+      const saved = next.find((x) => x.url === normalized) ?? next[next.length - 1];
       if(saved)
       {
         await setActiveProfile(saved);
@@ -119,7 +121,9 @@ export default function ServerSetupScreen()
         autoCapitalize="none"
         autoCorrect={false}
         keyboardType="url"
-        placeholder="http://192.168.1.10:80"
+        clearable
+        placeholder="firma.piqpos.net  /  86.122.45.65"
+        hint={url.trim() ? `→ ${normalizeServerUrl(url)}` : t('txtServerAddressExample')}
       />
       <Field
         label={t('txtNewName')}

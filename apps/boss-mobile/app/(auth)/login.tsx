@@ -10,15 +10,18 @@ import { Field } from '@/components/ui/Field';
 import { useAuth } from '@/lib/auth';
 import { useBootstrap } from '@/lib/bootstrap';
 import { clearCredentials, loadCredentials } from '@/lib/credentials';
-import { fetchLoginBootstrap } from '@/lib/loginBootstrap';
+import { fetchLoginBootstrap, type LoginDatabase } from '@/lib/loginBootstrap';
 import { resetSocket } from '@/lib/socket';
 import { loadLastUsername, loadRememberPassword, saveLastTenant, saveRememberPassword } from '@/lib/tenantConfig';
 import { APP_LANG_OPTIONS, setAppLanguage, type AppLang } from '@/lib/i18n';
 import { ms } from '@/lib/responsive';
 import {
   loadServerProfiles,
+  normalizeServerUrl,
   resolveActiveProfile,
+  serverHost,
   setActiveProfile,
+  upsertServerProfile,
   type ServerProfile
 } from '@/lib/serverProfiles';
 import { textSharp } from '@/lib/typography';
@@ -30,10 +33,18 @@ export default function LoginScreen()
   const activeLang = (i18n.language as AppLang) || 'fr';
   const login = useAuth((s) => s.login);
   const setServerUrlState = useBootstrap((s) => s.setServerUrl);
+  const setSector = useBootstrap((s) => s.setSector);
+  const setSelectedDb = useBootstrap((s) => s.setSelectedDb);
   const [submitting, setSubmitting] = useState(false);
   const [servers, setServers] = useState<ServerProfile[]>([]);
   const [activeServerId, setActiveServerId] = useState('');
+  const [serverInput, setServerInput] = useState('');
+  const [pickerOpen, setPickerOpen] = useState(false);
+  const [pickerAddHost, setPickerAddHost] = useState<string | null>(null);
+  const [databases, setDatabases] = useState<LoginDatabase[]>([]);
+  const [selectedDb, setSelectedDbLocal] = useState('');
   const [companies, setCompanies] = useState<{ code: string; name: string }[]>([]);
+  const [selectedCompany, setSelectedCompany] = useState('');
   const [bossUsers, setBossUsers] = useState<{ code: string; name: string }[]>([]);
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
@@ -58,20 +69,43 @@ export default function LoginScreen()
   }, [bootstrapBusy, username, password]);
   const userOptions = useMemo(() =>
     bossUsers.map((x) => ({ value: x.code, label: x.name || x.code, sub: x.code })), [bossUsers]);
-  const loadBootstrap = useCallback(async (profile: ServerProfile) =>
+  const companyOptions = useMemo(() =>
+    companies.map((x) => ({ value: x.code, label: x.name || x.code, sub: x.code })), [companies]);
+  const loadBootstrap = useCallback(async (profile: ServerProfile, dbOverride?: string) =>
   {
     setBootstrapBusy(true);
     setBootstrapError('');
     setCompanies([]);
+    setSelectedCompany('');
     setBossUsers([]);
     setUsername('');
     try
     {
       resetSocket();
       setServerUrlState(profile.url);
+      setSector(profile.module);
       await setActiveProfile(profile);
-      const data = await fetchLoginBootstrap(profile.url);
+      let data = await fetchLoginBootstrap(profile.url, dbOverride);
+      setDatabases(data.databases);
+      // Cok-DB (Azure): hedef DB'yi belirle ve kullanici/firma listesini o DB'den yukle.
+      let effectiveDb = dbOverride ?? '';
+      if(!effectiveDb && data.databases.length > 0)
+      {
+        effectiveDb = data.databases.some((d) => d.code === data.db) ? data.db : data.databases[0].code;
+        if(effectiveDb && effectiveDb !== data.db)
+        {
+          data = await fetchLoginBootstrap(profile.url, effectiveDb);
+        }
+      }
+      if(!effectiveDb)
+      {
+        // Tek-DB: sunucu config veritabani.
+        effectiveDb = data.db;
+      }
+      setSelectedDbLocal(effectiveDb);
+      setSelectedDb(effectiveDb);
       setCompanies(data.companies);
+      setSelectedCompany(data.companies[0]?.code ?? '');
       setBossUsers(data.users);
       const lastUser = await loadLastUsername();
       let nextUser = '';
@@ -109,7 +143,7 @@ export default function LoginScreen()
     {
       setBootstrapBusy(false);
     }
-  }, [setServerUrlState]);
+  }, [setServerUrlState, setSector, setSelectedDb]);
   useEffect(() =>
   {
     void (async () =>
@@ -126,11 +160,44 @@ export default function LoginScreen()
         return;
       }
       setActiveServerId(active.id);
+      setServerInput(serverHost(active.url));
       await loadBootstrap(active);
     })();
   }, [loadBootstrap]);
+  const connectServer = useCallback(async (addr: string) =>
+  {
+    const normalized = normalizeServerUrl(addr);
+    if(!normalized)
+    {
+      if(addr.trim())
+      {
+        setBootstrapError(t('txtServerAddressExample'));
+      }
+      return;
+    }
+    if(bootstrapBusy)
+    {
+      return;
+    }
+    if(activeServer && normalized === activeServer.url && (companies.length > 0 || bossUsers.length > 0))
+    {
+      return;
+    }
+    const existing = servers.find((x) => x.url === normalized);
+    if(!existing)
+    {
+      // Yeni IP/sunucu → modul (POS/OFF/REST) secimi icin firma kayit ekranini ac.
+      setPickerAddHost(addr);
+      setPickerOpen(true);
+      return;
+    }
+    setActiveServerId(existing.id);
+    setServerInput(serverHost(existing.url));
+    await loadBootstrap(existing);
+  }, [activeServer, bootstrapBusy, bossUsers.length, companies.length, loadBootstrap, servers, t]);
   const onServerSelect = async (profile: ServerProfile) =>
   {
+    setServerInput(serverHost(profile.url));
     setActiveServerId(profile.id);
     await loadBootstrap(profile);
   };
@@ -175,13 +242,14 @@ export default function LoginScreen()
       setError(t('txtUser'));
       return;
     }
-    const company = companies[0];
+    const company = companies.find((x) => x.code === selectedCompany) ?? companies[0];
     setSubmitting(true);
     try
     {
-      const tenant = activeServer.db || '';
+      const tenant = selectedDb || activeServer.db || '';
       await saveLastTenant(tenant);
       await login(tenant, username.trim(), password, company ? { code: company.code, name: company.name } : undefined);
+      await upsertServerProfile({ ...activeServer, db: tenant });
       if(!remember)
       {
         await clearCredentials();
@@ -214,11 +282,60 @@ export default function LoginScreen()
           );
         })}
       </View>
+      <Field
+        label={t('lblServer')}
+        value={serverInput}
+        onChangeText={setServerInput}
+        autoCapitalize="none"
+        autoCorrect={false}
+        keyboardType="url"
+        clearable
+        returnKeyType="go"
+        onSubmitEditing={() => void connectServer(serverInput)}
+        onEndEditing={() => void connectServer(serverInput)}
+        placeholder="firma.piqpos.net"
+        hint={serverInput.trim() ? `→ ${normalizeServerUrl(serverInput)}` : t('txtServerAddressExample')}
+      />
+      {servers.length > 0 ?
+        (
+          <Pressable style={styles.savedBtn} onPress={() => { setPickerAddHost(null); setPickerOpen(true); }}>
+            <Ionicons name="albums-outline" size={ms(18)} color={theme.color.primary} />
+            <Text style={[textSharp, styles.savedText]} numberOfLines={1}>
+              {activeServer ? activeServer.label : t('txtFirmSelect')}
+            </Text>
+            <Ionicons name="swap-horizontal" size={ms(16)} color={theme.color.primary} />
+          </Pressable>
+        ) : null}
       <ServerPicker
         servers={servers}
         activeId={activeServerId}
         onSelect={(profile) => void onServerSelect(profile)}
         onChange={onServersChange}
+        hideTrigger
+        open={pickerOpen}
+        onOpenChange={(o) => { setPickerOpen(o); if(!o) { setPickerAddHost(null); } }}
+        addHost={pickerAddHost}
+      />
+      {databases.length > 0 ?
+        (
+          <ComboSelect
+            label={t('txtDbSelect')}
+            placeholder={t('txtDbSelect')}
+            options={databases.map((d) => ({ value: d.code, label: d.name || d.code, sub: d.code }))}
+            value={selectedDb}
+            onChange={(db) => { if(activeServer) { void loadBootstrap(activeServer, db); } }}
+            disabled={bootstrapBusy}
+          />
+        ) : null}
+      <ComboSelect
+        label={t('txtFirmSelect')}
+        placeholder={t('txtFirmSelect')}
+        options={companyOptions}
+        value={selectedCompany}
+        onChange={setSelectedCompany}
+        loading={bootstrapBusy}
+        disabled={!activeServer || bootstrapBusy || companies.length === 0}
+        emptyLabel={t('msgNoFirmRegistered')}
       />
       <ComboSelect
         label={t('login.selectUser')}
@@ -296,6 +413,23 @@ const styles = StyleSheet.create({
   },
   flagText: {
     fontSize: ms(18)
+  },
+  savedBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: theme.space.xs,
+    alignSelf: 'flex-start',
+    paddingVertical: theme.space.xs,
+    paddingHorizontal: theme.space.sm,
+    marginTop: -theme.space.sm,
+    marginBottom: theme.space.lg,
+    borderRadius: theme.radius.sm,
+    backgroundColor: theme.color.primarySoft
+  },
+  savedText: {
+    color: theme.color.primary,
+    fontSize: theme.fontSize.sm,
+    fontWeight: '700'
   },
   rememberRow: {
     flexDirection: 'row',

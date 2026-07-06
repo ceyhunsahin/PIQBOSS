@@ -106,7 +106,8 @@ export const ButcherRowSchema = z.object({
   unchecked: z.number(),
   amount: z.number(),
   discount: z.number(),
-  deleted: z.number()
+  deleted: z.number(),
+  changeCount: z.number()
 });
 export type ButcherRow = z.infer<typeof ButcherRowSchema>;
 

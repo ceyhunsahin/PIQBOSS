@@ -1,6 +1,12 @@
 import { io, Socket } from 'socket.io-client';
+import i18n from './i18n';
 import { useBootstrap } from './bootstrap';
-import { attachGeneralListener, notifyLoginSuccess } from './general';
+import { attachGeneralListener } from './general';
+
+function connectErrorMessage(): string
+{
+  return i18n.t('msgSocketConnectFailed');
+}
 
 let socket: Socket | null = null;
 let currentUrl: string | null = null;
@@ -24,7 +30,6 @@ export function clearSocketLoginPayload(): void
 function markLoginSuccess(): void
 {
   authenticatedSocketId = socket?.id ?? null;
-  notifyLoginSuccess();
 }
 
 function clearLoginState(): void
@@ -54,18 +59,29 @@ function waitForConnect(s: Socket, timeoutMs = 30000): Promise<void>
   }
   return new Promise((resolve, reject) =>
   {
-    const timeout = setTimeout(() =>
-    {
-      s.off('connect', onConnect);
-      reject(new Error('socket baglantisi kurulamadi'));
-    }, timeoutMs);
-    const onConnect = () =>
+    const cleanup = () =>
     {
       clearTimeout(timeout);
       s.off('connect', onConnect);
+      s.off('connect_error', onError);
+    };
+    const timeout = setTimeout(() =>
+    {
+      cleanup();
+      reject(new Error(connectErrorMessage()));
+    }, timeoutMs);
+    const onConnect = () =>
+    {
+      cleanup();
       resolve();
     };
+    const onError = () =>
+    {
+      cleanup();
+      reject(new Error(connectErrorMessage()));
+    };
     s.on('connect', onConnect);
+    s.on('connect_error', onError);
   });
 }
 
@@ -82,6 +98,24 @@ function attachSessionHandlers(s: Socket): void
   });
 }
 
+/**
+ * Sunucu URL'ini io() hedefi (origin) ve socket.io path'ine ayirir.
+ * Reverse-proxy alt yolu (orn. piqpos.net/pos) socket.io'da namespace degil
+ * `path` ile cozulur: io("https://host", { path: "/pos/socket.io/" }).
+ */
+function splitSocketTarget(fullUrl: string): { origin: string; path: string }
+{
+  const clean = fullUrl.replace(/\/+$/, '');
+  const match = clean.match(/^(https?:\/\/[^/]+)(\/.*)?$/i);
+  if(!match)
+  {
+    return { origin: clean, path: '/socket.io/' };
+  }
+  const origin = match[1];
+  const base = (match[2] || '').replace(/\/+$/, '');
+  return { origin, path: base ? `${base}/socket.io/` : '/socket.io/' };
+}
+
 export function getSocket(serverUrl: string): Socket
 {
   const url = serverUrl.replace(/\/+$/, '');
@@ -91,8 +125,10 @@ export function getSocket(serverUrl: string): Socket
   }
   resetSocket();
   currentUrl = url;
-  socket = io(url, {
-    transports: ['websocket'],
+  const target = splitSocketTarget(url);
+  socket = io(target.origin, {
+    path: target.path,
+    transports: ['websocket', 'polling'],
     autoConnect: true,
     reconnection: true,
     reconnectionDelay: 1000,
@@ -120,7 +156,7 @@ function resolveServerUrl(serverUrl?: string): string
   const url = serverUrl ?? useBootstrap.getState().serverUrl;
   if(!url)
   {
-    throw new Error('Sunucu adresi ayarlanmamis');
+    throw new Error(i18n.t('msgServerUrlMissing'));
   }
   return url;
 }
@@ -340,7 +376,10 @@ export function emitSqlSafe<TRecord = Record<string, unknown>>(
   payload: { queryId: string; param: string[]; value: unknown[]; tag?: string }
 ): Promise<TRecord[]>
 {
-  return emitAsync<TRecord[]>('sql-safe', payload, serverUrl);
+  // Cok-DB (Azure): secili DB her sorguya eklenir; sunucu sorguyu o DB'ye yonlendirir.
+  const db = useBootstrap.getState().selectedDb;
+  const withDb = db ? { ...payload, db } : payload;
+  return emitAsync<TRecord[]>('sql-safe', withDb, serverUrl);
 }
 
 export type PushTokenPayload = {

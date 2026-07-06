@@ -1,6 +1,6 @@
 import { QueryIds } from '@piqboss/shared';
 import type { DateRange } from '@/lib/dateRange';
-import { formatCurrency, formatNumber } from '@/lib/format';
+import { formatCurrency, formatNumber, formatQuantity } from '@/lib/format';
 import { tDash } from '@/lib/i18n';
 import { sqlSafe } from '@/lib/sql';
 import { emptyLabel } from '@/lib/uiText';
@@ -83,7 +83,7 @@ export function mapRedTagRows(rows: Row[]): DetailContent['sections'][number]['r
   return rows.slice(0, 50).map((r) => ({
     label: String(r.ITEM_NAME ?? emptyLabel()),
     value: formatCurrency(num(r.TOTAL_AMOUNT)),
-    sub: `${num(r.TOTAL_QUANTITY)} ${String(r.UNIT_SHORT ?? '')} · ${num(r.SALE_COUNT)} ${tDash('quickTickets')}`
+    sub: `${formatQuantity(num(r.TOTAL_QUANTITY))} ${String(r.UNIT_SHORT ?? '')} · ${num(r.SALE_COUNT)} ${tDash('quickTickets')}`
   }));
 }
 
@@ -92,7 +92,7 @@ export function mapLowMarginRows(rows: Row[]): DetailContent['sections'][number]
   return rows.slice(0, 60).map((r) => ({
     label: String(r.ITEM_NAME ?? emptyLabel()),
     value: `${num(r.MARGIN_PERCENT).toFixed(1)}%`,
-    sub: `${String(r.ITEM_GRP_NAME ?? '')} · ${tDash('costPrice')} ${formatCurrency(num(r.COST_PRICE))}`,
+    sub: `${String(r.ITEM_CODE ?? '')} · ${tDash('salePrice')} ${formatCurrency(num(r.UNIT_SALE_HT))} → ${tDash('costPrice')} ${formatCurrency(num(r.COST_PRICE))}`,
     accent: num(r.MARGIN_PERCENT) < 0 ? '#DC2626' : undefined
   }));
 }

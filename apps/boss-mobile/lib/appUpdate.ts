@@ -1,7 +1,14 @@
 import { Alert, Linking, Platform } from 'react-native';
 import Constants from 'expo-constants';
 import i18n from './i18n';
-import { emitWithCallback } from './socket';
+
+// Mobil MAGAZA surumu MERKEZI piqhub'dan gelir (her musteri sunucusundan bagimsiz).
+// app.json > extra.mobileVersionUrl ile override edilebilir.
+const DEFAULT_VERSION_URL = 'https://piqhub.piqsoft.com/api/mobile-version';
+function getVersionUrl(): string
+{
+  return (Constants.expoConfig?.extra?.mobileVersionUrl as string) || DEFAULT_VERSION_URL;
+}
 
 type MobileVersionResponse = {
   success?: boolean;
@@ -62,8 +69,8 @@ function compareVersion(a: string, b: string): number
 let lastCheckAt = 0;
 const CHECK_INTERVAL_MS = 6 * 60 * 60 * 1000;
 
-/** piqoff get-mobile-version → kurulu surumden yeni ise guncelleme uyarisi. */
-export async function checkForUpdate(serverUrl: string, force = false): Promise<void>
+/** Merkezi piqhub /api/mobile-version → kurulu surumden yeni ise guncelleme uyarisi. */
+export async function checkForUpdate(force = false): Promise<void>
 {
   if(!force && Date.now() - lastCheckAt < CHECK_INTERVAL_MS)
   {
@@ -73,7 +80,12 @@ export async function checkForUpdate(serverUrl: string, force = false): Promise<
   let res: MobileVersionResponse;
   try
   {
-    res = await emitWithCallback<MobileVersionResponse>(serverUrl, 'get-mobile-version', { app: 'boss' });
+    const r = await fetch(`${getVersionUrl()}?app=boss`, { method: 'GET' });
+    if(!r.ok)
+    {
+      return;
+    }
+    res = (await r.json()) as MobileVersionResponse;
   }
   catch
   {

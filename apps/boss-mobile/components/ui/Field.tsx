@@ -1,20 +1,24 @@
 import { forwardRef, useState, type ForwardedRef } from 'react';
 import { View, Text, TextInput, StyleSheet, Pressable, type TextInputProps } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
+import { ms } from '@/lib/responsive';
 import { theme } from '@/lib/theme';
 
 type Props = TextInputProps & {
   label: string;
   hint?: string;
   secureToggle?: boolean;
+  clearable?: boolean;
 };
 
-export const Field = forwardRef(function Field({ label, hint, style, secureTextEntry, secureToggle, ...rest }: Props, ref: ForwardedRef<TextInput>)
+export const Field = forwardRef(function Field({ label, hint, style, secureTextEntry, secureToggle, clearable, ...rest }: Props, ref: ForwardedRef<TextInput>)
 {
   const { t } = useTranslation();
   const [focused, setFocused] = useState(false);
   const [hidden, setHidden] = useState(Boolean(secureTextEntry));
   const isSecure = secureTextEntry && hidden;
+  const showClear = clearable && !secureTextEntry && !!String(rest.value ?? '').length;
   return (
     <View style={styles.wrap}>
       <Text style={styles.label}>{label}</Text>
@@ -36,6 +40,12 @@ export const Field = forwardRef(function Field({ label, hint, style, secureTextE
           }}
           {...rest}
         />
+        {showClear ?
+          (
+            <Pressable style={styles.clear} onPress={() => rest.onChangeText?.('')} hitSlop={8}>
+              <Ionicons name="close-circle" size={ms(18)} color={theme.color.textMuted} />
+            </Pressable>
+          ) : null}
         {secureTextEntry && secureToggle ?
           (
             <Pressable style={styles.toggle} onPress={() => setHidden((v) => !v)} hitSlop={8}>
@@ -77,6 +87,11 @@ const styles = StyleSheet.create({
     paddingHorizontal: theme.space.lg,
     fontSize: theme.fontSize.body,
     color: theme.color.text
+  },
+  clear: {
+    paddingHorizontal: theme.space.sm,
+    alignItems: 'center',
+    justifyContent: 'center'
   },
   toggle: {
     paddingHorizontal: theme.space.md

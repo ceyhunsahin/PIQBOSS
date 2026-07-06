@@ -22,21 +22,47 @@ export const DashboardDetailSheet = memo(function DashboardDetailSheet({ visible
   const dash = useTDash();
   const tabs = content?.tabs ?? null;
   const [activeTab, setActiveTab] = useState(0);
+  const [collapsedKeys, setCollapsedKeys] = useState<Record<string, boolean>>({});
   useEffect(() =>
   {
     setActiveTab(0);
+    setCollapsedKeys({});
   }, [content?.title, tabs?.length]);
   const activeIndex = tabs && activeTab < tabs.length ? activeTab : 0;
   const sections: DetailSection[] = tabs ? (tabs[activeIndex]?.sections ?? []) : (content?.sections ?? []);
-  const renderSection = (section: DetailSection, sectionIndex: number) => (
-    <View key={`${section.title}-${sectionIndex}`} style={styles.section}>
-      {tabs ? null :
+  const toggleSection = (key: string, defaultCollapsed: boolean) =>
+  {
+    setCollapsedKeys((prev) =>
+    {
+      const current = key in prev ? prev[key] : defaultCollapsed;
+      return { ...prev, [key]: !current };
+    });
+  };
+  const renderSection = (section: DetailSection, sectionIndex: number) =>
+  {
+    const key = `${section.title}-${sectionIndex}`;
+    const collapsed = section.collapsible ? (key in collapsedKeys ? collapsedKeys[key] : !!section.defaultCollapsed) : false;
+    return (
+    <View key={key} style={styles.section}>
+      {section.collapsible ?
         (
-          <View style={styles.sectionHead}>
+          <Pressable style={styles.sectionHeadToggle} onPress={() => toggleSection(key, !!section.defaultCollapsed)}>
             <View style={styles.sectionBar} />
-            <Text style={styles.sectionTitle}>{section.title}</Text>
-          </View>
-        )}
+            <Text style={styles.sectionTitle} numberOfLines={1}>{section.title}</Text>
+            {section.headerValue ?
+              <Text style={styles.sectionHeadValue} numberOfLines={1}>{section.headerValue}</Text> : null}
+            <Ionicons name={collapsed ? 'chevron-down' : 'chevron-up'} size={ms(16)} color={theme.color.textMuted} />
+          </Pressable>
+        ) :
+        (tabs ? null :
+          (
+            <View style={styles.sectionHead}>
+              <View style={styles.sectionBar} />
+              <Text style={styles.sectionTitle}>{section.title}</Text>
+            </View>
+          ))}
+      {collapsed ? null : (
+        <>
       {section.chart && section.chart.length > 0 ?
         (
           <View style={styles.chartWrap}>
@@ -89,8 +115,11 @@ export const DashboardDetailSheet = memo(function DashboardDetailSheet({ visible
           );
         })}
       </View>
+        </>
+      )}
     </View>
-  );
+    );
+  };
   return (
     <BottomSheet
       visible={visible}
@@ -224,6 +253,21 @@ const styles = StyleSheet.create({
     gap: theme.space.sm,
     marginBottom: theme.space.sm
   },
+  sectionHeadToggle: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: theme.space.sm,
+    marginBottom: theme.space.sm,
+    paddingVertical: theme.space.xs
+  },
+  sectionHeadValue: {
+    flexShrink: 0,
+    marginLeft: 'auto',
+    textAlign: 'right',
+    fontSize: theme.fontSize.sm,
+    fontWeight: '800',
+    color: theme.color.textSecondary
+  },
   sectionBar: {
     width: ms(3),
     height: ms(14),
@@ -231,6 +275,7 @@ const styles = StyleSheet.create({
     backgroundColor: theme.color.primary
   },
   sectionTitle: {
+    flexShrink: 1,
     fontSize: theme.fontSize.xs,
     fontWeight: '800',
     color: theme.color.textSecondary,

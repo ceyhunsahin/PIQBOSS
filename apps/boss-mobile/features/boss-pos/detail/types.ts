@@ -18,6 +18,9 @@ export type DetailSection = {
   rows: DetailRow[];
   emptyText?: string;
   chart?: DetailChartPoint[];
+  collapsible?: boolean;
+  defaultCollapsed?: boolean;
+  headerValue?: string;
 };
 
 export type DetailBack = {

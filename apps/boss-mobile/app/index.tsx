@@ -5,19 +5,16 @@ import { useBootstrap } from '@/lib/bootstrap';
 export default function Index()
 {
   const ready = useBootstrap((s) => s.ready);
-  const serverUrl = useBootstrap((s) => s.serverUrl);
   const status = useAuth((s) => s.status);
-  if(!ready || status === 'loading')
+  // 'idle' iken login'e gondermiyoruz: AppGate guard'i once oturumu sessizce geri yuklesin
+  // (restoreSession). Aksi halde bundle reload sonrasi kisa bir login flash'i olusuyor.
+  if(!ready || status === 'loading' || status === 'idle')
   {
     return null;
   }
   if(status === 'authed')
   {
     return <Redirect href="/(main)/boss/pos" />;
-  }
-  if(!serverUrl)
-  {
-    return <Redirect href="/(setup)/server" />;
   }
   return <Redirect href="/(auth)/login" />;
 }

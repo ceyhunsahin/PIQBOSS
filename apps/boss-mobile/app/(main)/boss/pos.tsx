@@ -19,6 +19,7 @@ import { DateRangePicker } from '@/features/boss-pos/components/DateRangePicker'
 import { HeroSummaryCard } from '@/features/boss-pos/components/HeroSummaryCard';
 import { ItemSearchSheet } from '@/features/boss-pos/components/ItemSearchSheet';
 import { MarginGroupCard, MARGIN_CARD_STRIDE } from '@/features/boss-pos/components/MarginGroupCard';
+import { MarginSummaryCard } from '@/features/boss-pos/components/MarginSummaryCard';
 import { MarginToolsSection } from '@/features/boss-pos/components/MarginToolsSection';
 import { KpiGrid, kpiLabel } from '@/features/boss-pos/components/KpiGrid';
 import { MetricRow } from '@/features/boss-pos/components/MetricRow';
@@ -70,7 +71,7 @@ export default function PosDashboard()
     margins: dash.margins,
     promo: dash.promo
   });
-  const busy = dash.busy;
+  const headerBusy = dash.headerBusy;
   const applyRange = (next: DateRange, nextPreset: DatePresetId) =>
   {
     setRange(normalizeRange(next));
@@ -164,18 +165,18 @@ export default function PosDashboard()
           ref={scrollRef}
           style={styles.scroll}
           contentContainerStyle={styles.content}
-          refreshControl={<RefreshControl refreshing={busy} onRefresh={dash.reload} tintColor={theme.color.primary} />}
+          refreshControl={<RefreshControl refreshing={false} onRefresh={dash.reload} tintColor={theme.color.primary} />}
         >
           <DateRangePicker
             range={range}
             preset={preset}
-            busy={busy}
+            busy={headerBusy}
             onApply={applyRange}
             onRefresh={dash.reload}
           />
           <ProgressBar
-            visible={busy}
-            progress={dash.kpiPending && dash.totalCount > 0 ? dash.loadedCount / dash.totalCount : (dash.listPending ? 0.9 : 1)}
+            visible={headerBusy}
+            progress={dash.kpiPending && dash.totalCount > 0 ? dash.loadedCount / dash.totalCount : 0.9}
           />
           <Pressable
             style={({ pressed }) => [styles.quickBtn, pressed && styles.quickBtnPressed]}
@@ -425,6 +426,8 @@ export default function PosDashboard()
                     ))}
                   </ScrollView> : null}
               </SectionBlock>
+              {dash.margins.length > 0 || dash.vat.length > 0 ?
+                <MarginSummaryCard margins={dash.margins} vat={dash.vat} unsoldGroups={dash.data.unsoldItemGroups} /> : null}
             </>
           ) : null}
         {tab === 'comparison' ?

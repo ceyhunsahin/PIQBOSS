@@ -1,5 +1,6 @@
 import { DetailQueryIds, QueryIds } from '@piqboss/shared';
 import type { DateRange } from '@/lib/dateRange';
+import { formatCurrency, formatQuantity } from '@/lib/format';
 import i18n, { tDash } from '@/lib/i18n';
 import { sqlSafe } from '@/lib/sql';
 import { emptyLabel } from '@/lib/uiText';
@@ -284,8 +285,8 @@ export function mapPromoDetailRows(rows: Row[]): { label: string; value: string;
 {
   return rows.slice(0, 40).map((r) => ({
     label: String(r.ITEM_NAME ?? r.ITEM_CODE ?? emptyLabel()),
-    value: `${num(r.MARGIN_HT).toFixed(2)} €`,
-    sub: `${String(r.ITEM_GRP_NAME ?? '')} · ${num(r.TOTAL_QUANTITY)} ${i18n.t('dashboardOff.piecesLabel')}`
+    value: formatCurrency(num(r.MARGIN_HT)),
+    sub: `${String(r.ITEM_GRP_NAME ?? '')} · ${formatQuantity(num(r.TOTAL_QUANTITY))} ${i18n.t('dashboardOff.piecesLabel')}`
   }));
 }
 
@@ -293,8 +294,8 @@ export function mapMarginDetailRows(rows: Row[]): { label: string; value: string
 {
   return rows.slice(0, 50).map((r) => ({
     label: String(r.ITEM_NAME ?? r.ITEM_CODE ?? emptyLabel()),
-    value: `${num(r.MARGIN_HT).toFixed(2)} € (${num(r.MARGIN_PERCENT).toFixed(1)}%)`,
-    sub: `${num(r.TOTAL_QUANTITY)} ${String(r.UNIT_SHORT ?? i18n.t('dashboardOff.piecesLabel'))}`
+    value: `${formatCurrency(num(r.MARGIN_HT))} (${num(r.MARGIN_PERCENT).toFixed(1)}%)`,
+    sub: `${formatQuantity(num(r.TOTAL_QUANTITY))} ${String(r.UNIT_SHORT ?? i18n.t('dashboardOff.piecesLabel'))}`
   }));
 }
 
@@ -311,7 +312,7 @@ export function mapButcherChangeRows(rows: Row[]): { label: string; value: strin
     const discount = num(r.DISCOUNT);
     if(discount > 0)
     {
-      parts.push(`${tDash('useDiscount')}: ${discount.toFixed(2)} €`);
+      parts.push(`${tDash('useDiscount')}: ${formatCurrency(discount)}`);
     }
     const noteParts: string[] = [];
     if(num(r.IS_FREE) === 1 || num(r.FREE) === 1)
@@ -323,9 +324,10 @@ export function mapButcherChangeRows(rows: Row[]): { label: string; value: strin
     {
       noteParts.push(`✏️ ${reason}`);
     }
+    const total = num(r.TOTAL) > 0 ? num(r.TOTAL) : num(r.QUANTITY) * num(r.PRICE);
     return {
       label: String(r.ITEM_NAME ?? r.REF ?? emptyLabel()),
-      value: `${num(r.TOTAL).toFixed(2)} €`,
+      value: formatCurrency(total),
       sub: parts.join(' · '),
       note: noteParts.length ? noteParts.join('    ') : undefined
     };
@@ -336,7 +338,7 @@ export function mapPriceHistoryRows(rows: Row[]): { label: string; value: string
 {
   return rows.slice(0, 50).map((r) => ({
     label: String(r.ITEM_NAME ?? r.ITEM_CODE ?? r.ITEM ?? emptyLabel()),
-    value: `${num(r.FISRT_PRICE).toFixed(2)} → ${num(r.LAST_PRICE).toFixed(2)}`,
+    value: `${formatCurrency(num(r.FISRT_PRICE))} → ${formatCurrency(num(r.LAST_PRICE))}`,
     sub: String(r.CDATE ?? '').slice(0, 10)
   }));
 }
@@ -360,7 +362,7 @@ export function mapRebateTicketRows(rows: Row[]): { label: string; value: string
 {
   return rows.slice(0, 40).map((r) => ({
     label: String(r.ITEM_NAME ?? r.GUID ?? emptyLabel()),
-    value: `${num(r.TOTAL).toFixed(2)} €`,
+    value: formatCurrency(num(r.TOTAL)),
     sub: `${String(r.DOC_DATE ?? '').slice(0, 10)} · ${String(r.DEVICE ?? '')}`
   }));
 }
@@ -393,6 +395,6 @@ export function mapNonTraiteRows(rows: Row[]): { label: string; value: string; s
   return rows.map((r) => ({
     label: String(r.WEIGHER_NAME ?? r.WEIGHER ?? emptyLabel()),
     value: formatNumber(num(r.NON_TRAITE_COUNT)),
-    sub: `${formatNumber(num(r.NON_TRAITE_AMOUNT))} €`
+    sub: formatCurrency(num(r.NON_TRAITE_AMOUNT))
   }));
 }

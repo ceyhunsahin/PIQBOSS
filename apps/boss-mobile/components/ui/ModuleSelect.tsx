@@ -26,14 +26,14 @@ export const ModuleSelect = memo(function ModuleSelect({ items, activeId }: Prop
     close();
     router.push(route as Href);
   };
-  if(items.length === 0)
+  if(items.length <= 1)
   {
     return null;
   }
   return (
     <>
       <Pressable style={styles.trigger} onPress={() => setOpen(true)} hitSlop={8}>
-        <Ionicons name="grid" size={ms(16)} color={theme.color.accentLight} />
+        <Ionicons name="grid" size={ms(18)} color={theme.color.accentLight} />
       </Pressable>
       <Modal visible={open} animationType="slide" transparent onRequestClose={close}>
         <View style={styles.overlay}>
@@ -56,9 +56,12 @@ export const ModuleSelect = memo(function ModuleSelect({ items, activeId }: Prop
                     style={[styles.option, selected && styles.optionActive]}
                     onPress={() => navigate(item.route)}
                   >
+                    <View style={[styles.optionIcon, selected && styles.optionIconActive]}>
+                      <Ionicons name="apps" size={ms(22)} color={selected ? theme.color.primary : theme.color.textMuted} />
+                    </View>
                     <Text style={[styles.optionText, selected && styles.optionTextActive]}>{t(item.labelKey)}</Text>
                     {selected ?
-                      <Ionicons name="checkmark-circle" size={20} color={theme.color.primary} /> : null}
+                      <Ionicons name="checkmark-circle" size={ms(26)} color={theme.color.primary} /> : null}
                   </Pressable>
                 );
               })}
@@ -75,12 +78,12 @@ export const ModuleSelect = memo(function ModuleSelect({ items, activeId }: Prop
 
 const styles = StyleSheet.create({
   trigger: {
-    width: ms(38),
-    height: ms(38),
+    width: ms(40),
+    height: ms(40),
     borderRadius: ms(12),
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: 'rgba(255,255,255,0.08)',
+    backgroundColor: 'rgba(255,255,255,0.10)',
     borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.14)'
   },
@@ -101,49 +104,50 @@ const styles = StyleSheet.create({
     borderTopLeftRadius: theme.radius.xl,
     borderTopRightRadius: theme.radius.xl,
     paddingHorizontal: theme.space.lg,
-    paddingTop: theme.space.sm,
-    maxHeight: '70%',
+    paddingTop: theme.space.md,
+    maxHeight: '82%',
     ...theme.shadow.sheet
   },
   handle: {
     alignSelf: 'center',
-    width: ms(40),
-    height: ms(4),
-    borderRadius: ms(2),
+    width: ms(48),
+    height: ms(5),
+    borderRadius: ms(3),
     backgroundColor: theme.color.border,
-    marginBottom: theme.space.md
+    marginBottom: theme.space.lg
   },
   head: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: theme.space.md
+    marginBottom: theme.space.lg
   },
   closeBtn: {
-    width: ms(36),
-    height: ms(36),
-    borderRadius: ms(18),
+    width: ms(40),
+    height: ms(40),
+    borderRadius: ms(20),
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: theme.color.surfaceMuted
   },
   sheetTitle: {
     flex: 1,
-    fontSize: theme.fontSize.md,
+    fontSize: theme.fontSize.lg,
     fontWeight: '800',
     color: theme.color.text
   },
   options: {
-    gap: theme.space.sm,
+    gap: theme.space.md,
     paddingBottom: theme.space.sm
   },
   option: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: theme.space.md,
-    paddingVertical: theme.space.md,
-    borderRadius: theme.radius.sm,
+    gap: theme.space.md,
+    paddingHorizontal: theme.space.lg,
+    paddingVertical: theme.space.lg,
+    borderRadius: theme.radius.md,
     borderWidth: 1,
     borderColor: theme.color.border,
     backgroundColor: theme.color.surfaceMuted
@@ -152,9 +156,20 @@ const styles = StyleSheet.create({
     borderColor: theme.color.primary,
     backgroundColor: theme.color.primarySoft
   },
+  optionIcon: {
+    width: ms(44),
+    height: ms(44),
+    borderRadius: ms(12),
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: theme.color.surfaceTint
+  },
+  optionIconActive: {
+    backgroundColor: theme.color.surface
+  },
   optionText: {
     flex: 1,
-    fontSize: theme.fontSize.body,
+    fontSize: theme.fontSize.md,
     fontWeight: '700',
     color: theme.color.text
   },
@@ -164,10 +179,10 @@ const styles = StyleSheet.create({
   cancelBtn: {
     marginTop: theme.space.sm,
     alignItems: 'center',
-    paddingVertical: theme.space.md
+    paddingVertical: theme.space.lg
   },
   cancelText: {
-    fontSize: theme.fontSize.sm,
+    fontSize: theme.fontSize.body,
     fontWeight: '700',
     color: theme.color.textSecondary
   }

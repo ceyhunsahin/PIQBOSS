@@ -101,13 +101,15 @@ export const MarginToolsSection = memo(function MarginToolsSection({
     {
       try
       {
-        const [zero, red] = await Promise.all([
-          fetchZeroCostItems(serverUrl),
-          fetchRedTagItems(serverUrl, range)
-        ]);
+        // Pool kilitlenmesini onlemek icin sirayla yukle (paralel degil).
+        const zero = await fetchZeroCostItems(serverUrl);
         if(reqId === staticReqRef.current)
         {
           setZeroCount(zero.length);
+        }
+        const red = await fetchRedTagItems(serverUrl, range);
+        if(reqId === staticReqRef.current)
+        {
           setRedCount(red.length);
         }
       }
@@ -136,13 +138,15 @@ export const MarginToolsSection = memo(function MarginToolsSection({
       {
         try
         {
-          const [sold, unsold] = await Promise.all([
-            fetchLowMarginProducts(serverUrl, range, thresholdNum, groupName),
-            fetchUnsoldLossProducts(serverUrl, range, groupName)
-          ]);
+          // Agir sorgular: sirayla yukle (paralel degil) ki socket pool kilitlenmesin.
+          const sold = await fetchLowMarginProducts(serverUrl, range, thresholdNum, groupName);
           if(reqId === marginReqRef.current)
           {
             setSoldCount(sold.length);
+          }
+          const unsold = await fetchUnsoldLossProducts(serverUrl, range, groupName);
+          if(reqId === marginReqRef.current)
+          {
             setUnsoldCount(unsold.length);
           }
         }
@@ -159,80 +163,86 @@ export const MarginToolsSection = memo(function MarginToolsSection({
     return () => clearTimeout(timer);
   }, [serverUrl, range, thresholdNum, groupName]);
   return (
-    <SectionBlock title={dash('marginFilter')} accent={theme.color.violet}>
-      <View style={styles.filters}>
-        <Text style={[textSharp, styles.thrLabel]}>{dash('lowMarginMarginLabel')}</Text>
-        <View style={styles.thrRow}>
-          {THRESHOLDS.map((v) =>
-          {
-            const active = v === threshold;
-            return (
-              <Pressable key={v} style={[styles.chip, active && styles.chipActive]} onPress={() => setThreshold(v)}>
-                <Text style={[textSharp, styles.chipText, active && styles.chipTextActive]}>{`< ${v}%`}</Text>
-              </Pressable>
-            );
-          })}
-          <View style={styles.thrInputWrap}>
-            <TextInput
-              style={[textSharp, styles.thrInput]}
-              value={threshold}
-              onChangeText={(t) => setThreshold(t.replace(/[^0-9]/g, '').slice(0, 3))}
-              keyboardType="number-pad"
-              placeholder="…"
-              placeholderTextColor={theme.color.textMuted}
-            />
-            <Text style={[textSharp, styles.thrPct]}>%</Text>
+    <>
+      <SectionBlock title={dash('marginFilter')} accent={theme.color.violet}>
+        <View style={styles.filtersLast}>
+          <Text style={[textSharp, styles.thrLabel]}>{dash('lowMarginMarginLabel')}</Text>
+          <View style={styles.thrRow}>
+            {THRESHOLDS.map((v) =>
+            {
+              const active = v === threshold;
+              return (
+                <Pressable key={v} style={[styles.chip, active && styles.chipActive]} onPress={() => setThreshold(v)}>
+                  <Text style={[textSharp, styles.chipText, active && styles.chipTextActive]}>{`< ${v}%`}</Text>
+                </Pressable>
+              );
+            })}
+            <View style={styles.thrInputWrap}>
+              <TextInput
+                style={[textSharp, styles.thrInput]}
+                value={threshold}
+                onChangeText={(t) => setThreshold(t.replace(/[^0-9]/g, '').slice(0, 3))}
+                keyboardType="number-pad"
+                placeholder="…"
+                placeholderTextColor={theme.color.textMuted}
+              />
+              <Text style={[textSharp, styles.thrPct]}>%</Text>
+            </View>
           </View>
+          <PressableScale onPress={() => onLowMarginSold(thresholdNum, groupName)} style={styles.searchBtnLast}>
+            <Text style={[textSharp, styles.searchEmoji]}>🔍</Text>
+            <View style={styles.searchTextCol}>
+              <Text style={[textSharp, styles.searchTitle]}>{dash('lowMarginSoldMode')}</Text>
+              <Text style={[textSharp, styles.searchSub]} numberOfLines={1}>{`< ${thresholdNum}% · ${groupLabel}`}</Text>
+            </View>
+            <CountBadge count={soldCount} accent={theme.color.primary} />
+          </PressableScale>
         </View>
-        <PressableScale onPress={() => onLowMarginSold(thresholdNum, groupName)} style={styles.searchBtn}>
-          <Text style={[textSharp, styles.searchEmoji]}>🔍</Text>
-          <View style={styles.searchTextCol}>
-            <Text style={[textSharp, styles.searchTitle]}>{dash('lowMarginSoldMode')}</Text>
-            <Text style={[textSharp, styles.searchSub]} numberOfLines={1}>{`< ${thresholdNum}% · ${groupLabel}`}</Text>
-          </View>
-          <CountBadge count={soldCount} accent={theme.color.primary} />
-        </PressableScale>
-        <ComboSelect
-          label={dash('marginByProductGroups')}
-          placeholder={dash('all')}
-          options={groupOptions}
-          value={groupName}
-          onChange={setGroupName}
-        />
-      </View>
-      <View style={styles.list}>
-        <ActionTile
-          icon="🔎"
-          title={dash('itemMarginSearch')}
-          sub={dash('itemSearchInfo')}
-          accent={theme.color.primary}
-          onPress={onSearch}
-        />
-        <ActionTile
-          icon="⚠️"
-          title={dash('lowMarginUnsoldLoss')}
-          sub={groupLabel}
-          accent={theme.color.warning}
-          count={unsoldCount}
-          onPress={() => onLowMarginUnsold(groupName)}
-        />
-        <ActionTile
-          icon="🧾"
-          title={dash('zeroCostItems')}
-          accent={theme.color.danger}
-          count={zeroCount}
-          onPress={onZeroCost}
-        />
-        <ActionTile
-          icon="🔖"
-          title={dash('redTagItems')}
-          sub={rangeLabel}
-          accent={theme.color.pink}
-          count={redCount}
-          onPress={onRedTag}
-        />
-      </View>
-    </SectionBlock>
+      </SectionBlock>
+      <SectionBlock title={dash('productAnalysisTools')} accent={theme.color.primary}>
+        <View style={styles.filters}>
+          <ComboSelect
+            label={dash('marginByProductGroups')}
+            placeholder={dash('all')}
+            options={groupOptions}
+            value={groupName}
+            onChange={setGroupName}
+          />
+        </View>
+        <View style={styles.list}>
+          <ActionTile
+            icon="🔎"
+            title={dash('itemMarginSearch')}
+            sub={dash('itemSearchInfo')}
+            accent={theme.color.primary}
+            onPress={onSearch}
+          />
+          <ActionTile
+            icon="⚠️"
+            title={dash('lowMarginUnsoldLoss')}
+            sub={groupLabel}
+            accent={theme.color.warning}
+            count={unsoldCount}
+            onPress={() => onLowMarginUnsold(groupName)}
+          />
+          <ActionTile
+            icon="🧾"
+            title={dash('zeroCostItems')}
+            accent={theme.color.danger}
+            count={zeroCount}
+            onPress={onZeroCost}
+          />
+          <ActionTile
+            icon="🔖"
+            title={dash('redTagItems')}
+            sub={rangeLabel}
+            accent={theme.color.pink}
+            count={redCount}
+            onPress={onRedTag}
+          />
+        </View>
+      </SectionBlock>
+    </>
   );
 });
 
@@ -243,6 +253,11 @@ const styles = StyleSheet.create({
     paddingBottom: theme.space.sm,
     borderBottomWidth: StyleSheet.hairlineWidth,
     borderBottomColor: theme.color.border
+  },
+  filtersLast: {
+    paddingHorizontal: theme.space.lg,
+    paddingTop: theme.space.md,
+    paddingBottom: theme.space.md
   },
   thrLabel: {
     fontSize: theme.fontSize.sm,
@@ -299,11 +314,10 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: theme.color.textMuted
   },
-  searchBtn: {
+  searchBtnLast: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: theme.space.md,
-    marginBottom: theme.space.md,
     padding: theme.space.md,
     borderRadius: theme.radius.md,
     backgroundColor: theme.color.primarySoft,

@@ -36,7 +36,9 @@ export async function loadPosDashboardKpis(
 ): Promise<void>
 {
   let fatal: Error | null = null;
-  await mapPool(POS_DASHBOARD_QUERIES, 4, async (def) =>
+  // overview'da KPI + lists ayni anda calisir; KPI sorgulari sargable filtrelerle hafif.
+  // Eszamanligi 6'ya cikarinca KPI dalgalari ~7 -> ~5'e iner (KPI 6 + lists 3 = 9, havuz max 10).
+  await mapPool(POS_DASHBOARD_QUERIES, 6, async (def) =>
   {
     const value = def.valueMode === 'none' ? [] : [range.from, range.to];
     try

@@ -12,13 +12,21 @@ build/
 .expo/
 .expo-shared/
 web-build/
+apps/boss-mobile/.expo-export/
 apps/boss-mobile/android/
 apps/boss-mobile/ios/
+apps/boss-mobile/android-build*
+apps/boss-mobile/build_view.json
+apps/boss-mobile/play-service-account.json
+/android/
+/app.json
+.npm-cache/
 
 # env / secrets
 .env
 .env.*
 !.env.example
+*.p8
 
 # logs
 *.log

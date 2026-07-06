@@ -9,19 +9,6 @@ type GeneralPayload = {
 };
 
 let forceLogoutHandler: (() => Promise<void>) | null = null;
-let lastLoginSuccessAt = 0;
-
-const DUPLICATE_DEVICE_GRACE_MS = 30000;
-
-export function notifyLoginSuccess(): void
-{
-  lastLoginSuccessAt = Date.now();
-}
-
-export function shouldIgnoreDuplicateDeviceAlert(): boolean
-{
-  return Date.now() - lastLoginSuccessAt < DUPLICATE_DEVICE_GRACE_MS;
-}
 
 export function setForceLogoutHandler(handler: () => Promise<void>): void
 {
@@ -35,15 +22,9 @@ export function attachGeneralListener(socket: Socket): void
   {
     if(payload.id === 'M004')
     {
-      // gensrv diger cihazi disconnect ETMIYOR (core.js icinde yorumlu); bu sadece bilgilendirme.
-      // Bu yuzden oturumu zorla kapatmiyoruz; kendi (yeniden) girisimizden gelen sinyali de yok sayiyoruz.
-      if(shouldIgnoreDuplicateDeviceAlert())
-      {
-        return;
-      }
-      Alert.alert(i18n.t('msgAnotherUserAlert.title'), i18n.t('msgAnotherUserAlert.msg'), [
-        { text: i18n.t('msgAnotherUserAlert.btn01') }
-      ]);
+      // M004 = "baska cihazdan giris" sadece bilgilendirme; gensrv diger cihazi disconnect ETMIYOR.
+      // Mobil tek cihaz olarak calisir ve bu sinyale aksiyon almaz; yeniden baglanma/yeniden giriste
+      // sunucu eski socket'i hentemizlemeden yenisini sayinca yanlis pozitif uretiyordu. Mobilde bastiriyoruz.
       return;
     }
     if(payload.id === 'M001')

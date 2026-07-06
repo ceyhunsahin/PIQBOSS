@@ -1,15 +1,18 @@
-import { memo, useState } from 'react';
-import { Alert, Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { memo, useEffect, useRef, useState } from 'react';
+import { Alert, Animated, Easing, KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useTranslation } from 'react-i18next';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Button } from '@/components/ui/Button';
 import { Field } from '@/components/ui/Field';
+import { ModuleToggle } from '@/components/ui/ModuleToggle';
 import {
+  normalizeServerUrl,
   removeServerProfile,
   serverHost,
   upsertServerProfile,
+  type SectorModule,
   type ServerProfile
 } from '@/lib/serverProfiles';
 import { ms } from '@/lib/responsive';
@@ -21,28 +24,74 @@ type Props = {
   activeId: string;
   onSelect: (profile: ServerProfile) => void;
   onChange: (servers: ServerProfile[]) => void;
+  hideTrigger?: boolean;
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
+  addHost?: string | null;
 };
 
-export const ServerPicker = memo(function ServerPicker({ servers, activeId, onSelect, onChange }: Props)
+export const ServerPicker = memo(function ServerPicker({ servers, activeId, onSelect, onChange, hideTrigger, open: openProp, onOpenChange, addHost }: Props)
 {
   const { t } = useTranslation();
   const insets = useSafeAreaInsets();
-  const [open, setOpen] = useState(false);
+  const [internalOpen, setInternalOpen] = useState(false);
+  const open = openProp ?? internalOpen;
+  const setOpen = (next: boolean) =>
+  {
+    if(onOpenChange)
+    {
+      onOpenChange(next);
+    }
+    else
+    {
+      setInternalOpen(next);
+    }
+  };
   const [adding, setAdding] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
   const [host, setHost] = useState('');
   const [name, setName] = useState('');
+  const [mod, setMod] = useState<SectorModule>('pos');
+  const slide = useRef(new Animated.Value(0)).current;
   const active = servers.find((x) => x.id === activeId) ?? servers[0];
+  useEffect(() =>
+  {
+    if(open)
+    {
+      slide.setValue(0);
+      Animated.timing(slide, { toValue: 1, duration: 220, easing: Easing.out(Easing.cubic), useNativeDriver: true }).start();
+      // Yeni IP girisinden geliyorsa direkt ekleme formunu modul secimiyle ac.
+      if(addHost)
+      {
+        setEditingId(null);
+        setHost(addHost);
+        setName(serverHost(normalizeServerUrl(addHost) || addHost));
+        setMod('pos');
+        setAdding(true);
+      }
+    }
+  }, [open, slide, addHost]);
   const close = () =>
   {
     setOpen(false);
     setAdding(false);
+    setEditingId(null);
     setHost('');
     setName('');
+    setMod('pos');
   };
   const pick = (profile: ServerProfile) =>
   {
     onSelect(profile);
     close();
+  };
+  const startEdit = (profile: ServerProfile) =>
+  {
+    setEditingId(profile.id);
+    setHost(serverHost(profile.url));
+    setName(profile.label);
+    setMod(profile.module);
+    setAdding(true);
   };
   const onSave = async () =>
   {
@@ -51,12 +100,17 @@ export const ServerPicker = memo(function ServerPicker({ servers, activeId, onSe
       Alert.alert(t('msgWarning'), t('txtServerAddressExample'));
       return;
     }
-    const next = await upsertServerProfile({ url: host, label: name, db: '' });
+    const normalized = normalizeServerUrl(host);
+    // DB sunucu config'inden otomatik gelir (bootstrap); duzenlemede mevcut deger korunur.
+    const keepDb = editingId ? (servers.find((x) => x.id === editingId)?.db ?? '') : '';
+    const next = await upsertServerProfile({ id: editingId ?? undefined, url: host, label: name, db: keepDb, module: mod });
     onChange(next);
-    const saved = next[next.length - 1];
+    const saved = next.find((x) => x.url === normalized) ?? next[next.length - 1];
     setAdding(false);
+    setEditingId(null);
     setHost('');
     setName('');
+    setMod('pos');
     if(saved)
     {
       pick(saved);
@@ -82,33 +136,49 @@ export const ServerPicker = memo(function ServerPicker({ servers, activeId, onSe
   };
   return (
     <>
-      <Text style={[textSharp, styles.label]}>{t('txtFirmSelect')}</Text>
-      <Pressable onPress={() => setOpen(true)}>
-        <LinearGradient
-          colors={theme.gradient.night}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-          style={styles.card}
+      {!hideTrigger ?
+        (
+          <>
+            <Text style={[textSharp, styles.label]}>{t('txtFirmSelect')}</Text>
+            <Pressable onPress={() => setOpen(true)}>
+              <LinearGradient
+                colors={theme.gradient.night}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+                style={styles.card}
+              >
+                <View style={styles.cardIcon}>
+                  <Ionicons name="business" size={ms(20)} color={theme.color.accentLight} />
+                </View>
+                <View style={styles.cardMain}>
+                  <Text style={[textSharp, styles.cardTitle]} numberOfLines={1}>
+                    {active ? active.label : t('msgNoFirmRegistered')}
+                  </Text>
+                  <Text style={[textSharp, styles.cardSub]} numberOfLines={1}>
+                    {active ? serverHost(active.url) : t('txtServerAddressExample')}
+                  </Text>
+                </View>
+                <Ionicons name="swap-horizontal" size={ms(20)} color={theme.color.textOnInkMuted} />
+              </LinearGradient>
+            </Pressable>
+          </>
+        ) : null}
+      <Modal visible={open} transparent animationType="fade" onRequestClose={close}>
+        <KeyboardAvoidingView
+          style={styles.overlay}
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
         >
-          <View style={styles.cardIcon}>
-            <Ionicons name="business" size={ms(20)} color={theme.color.accentLight} />
-          </View>
-          <View style={styles.cardMain}>
-            <Text style={[textSharp, styles.cardTitle]} numberOfLines={1}>
-              {active ? active.label : t('msgNoFirmRegistered')}
-            </Text>
-            <Text style={[textSharp, styles.cardSub]} numberOfLines={1}>
-              {active ? serverHost(active.url) : t('txtServerAddressExample')}
-            </Text>
-          </View>
-          <Ionicons name="swap-horizontal" size={ms(20)} color={theme.color.textOnInkMuted} />
-        </LinearGradient>
-      </Pressable>
-      <Modal visible={open} transparent animationType="slide" onRequestClose={close}>
-        <View style={styles.overlay}>
           <Pressable style={styles.backdrop} onPress={close} />
-          <View style={[styles.sheet, { paddingBottom: Math.max(insets.bottom, theme.space.lg) }]}>
-            <View style={styles.handle} />
+          <Animated.View
+            style={[
+              styles.sheet,
+              {
+                paddingTop: Math.max(insets.top, theme.space.lg),
+                opacity: slide,
+                transform: [{ translateY: slide.interpolate({ inputRange: [0, 1], outputRange: [-28, 0] }) }]
+              }
+            ]}
+          >
             <View style={styles.head}>
               <Text style={[textSharp, styles.sheetTitle]}>{t('txtFirmSelect')}</Text>
               <Pressable style={styles.closeBtn} onPress={close} hitSlop={10}>
@@ -125,7 +195,9 @@ export const ServerPicker = memo(function ServerPicker({ servers, activeId, onSe
                     autoCapitalize="none"
                     autoCorrect={false}
                     keyboardType="url"
-                    placeholder="pratik.piqpos.net"
+                    clearable
+                    placeholder="firma.piqpos.net  /  6.122.45.65"
+                    hint={host.trim() ? `→ ${normalizeServerUrl(host)}` : t('txtServerAddressExample')}
                   />
                   <Field
                     label={t('txtNewName')}
@@ -134,8 +206,9 @@ export const ServerPicker = memo(function ServerPicker({ servers, activeId, onSe
                     autoCapitalize="words"
                     placeholder={t('txtNewName')}
                   />
-                  <Button label={t('btnOk')} onPress={() => void onSave()} />
-                  <Pressable style={styles.linkBtn} onPress={() => setAdding(false)}>
+                  <ModuleToggle label={t('txtModule')} value={mod} onChange={setMod} />
+                  <Button label={editingId ? t('btnUpdate') : t('btnOk')} onPress={() => void onSave()} />
+                  <Pressable style={styles.linkBtn} onPress={() => { setAdding(false); setEditingId(null); setHost(''); setName(''); setMod('pos'); }}>
                     <Text style={[textSharp, styles.linkText]}>{t('btnCancel')}</Text>
                   </Pressable>
                 </View>
@@ -167,7 +240,10 @@ export const ServerPicker = memo(function ServerPicker({ servers, activeId, onSe
                           </View>
                           {selected ?
                             <Ionicons name="checkmark-circle" size={ms(20)} color={theme.color.primary} /> : null}
-                          <Pressable style={styles.trashBtn} onPress={() => onDelete(profile)} hitSlop={8}>
+                          <Pressable style={styles.actionBtn} onPress={() => startEdit(profile)} hitSlop={8}>
+                            <Ionicons name="create-outline" size={ms(18)} color={theme.color.textSecondary} />
+                          </Pressable>
+                          <Pressable style={styles.actionBtn} onPress={() => onDelete(profile)} hitSlop={8}>
                             <Ionicons name="trash-outline" size={ms(18)} color={theme.color.danger} />
                           </Pressable>
                         </Pressable>
@@ -180,8 +256,8 @@ export const ServerPicker = memo(function ServerPicker({ servers, activeId, onSe
                   </Pressable>
                 </>
               )}
-          </View>
-        </View>
+          </Animated.View>
+        </KeyboardAvoidingView>
       </Modal>
     </>
   );
@@ -227,7 +303,7 @@ const styles = StyleSheet.create({
   },
   overlay: {
     flex: 1,
-    justifyContent: 'flex-end'
+    justifyContent: 'flex-start'
   },
   backdrop: {
     position: 'absolute',
@@ -239,20 +315,12 @@ const styles = StyleSheet.create({
   },
   sheet: {
     backgroundColor: theme.color.surface,
-    borderTopLeftRadius: theme.radius.xl,
-    borderTopRightRadius: theme.radius.xl,
+    borderBottomLeftRadius: theme.radius.xl,
+    borderBottomRightRadius: theme.radius.xl,
     paddingHorizontal: theme.space.lg,
-    paddingTop: theme.space.sm,
-    maxHeight: '76%',
+    paddingBottom: theme.space.lg,
+    maxHeight: '82%',
     ...theme.shadow.sheet
-  },
-  handle: {
-    alignSelf: 'center',
-    width: ms(40),
-    height: ms(4),
-    borderRadius: ms(2),
-    backgroundColor: theme.color.border,
-    marginBottom: theme.space.md
   },
   head: {
     flexDirection: 'row',
@@ -323,7 +391,7 @@ const styles = StyleSheet.create({
     color: theme.color.textMuted,
     marginTop: 2
   },
-  trashBtn: {
+  actionBtn: {
     width: ms(32),
     height: ms(32),
     borderRadius: ms(16),

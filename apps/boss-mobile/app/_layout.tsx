@@ -5,6 +5,7 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { BootSplash } from '@/components/ui/BootSplash';
 import { useAuth } from '@/lib/auth';
 import { useBootstrap } from '@/lib/bootstrap';
+import { SECTOR_ROUTE } from '@/lib/menu';
 import { attachPushTokenRefresh, resolveNotificationRoute, subscribeNotificationResponse } from '@/lib/pushNotifications';
 import { checkForUpdate } from '@/lib/appUpdate';
 import '@/lib/i18n';
@@ -23,13 +24,17 @@ function AppGate()
     const inAuth = segments[0] === '(auth)';
     if(!serverUrl)
     {
-      if(!inSetup)
+      if(!inAuth && !inSetup)
       {
-        router.replace('/(setup)/server');
+        router.replace('/(auth)/login');
       }
       return;
     }
-    if(status === 'idle' && !inAuth && !inSetup)
+    // Authed degil ve auth/setup'ta degilsek: once oturumu SESSIZCE geri yuklemeyi dene.
+    // Boylece gecici bir state sifirlanmasi (render crash/bundle reload veya anlik idle/error)
+    // kullaniciyi sayfalar arasi gezerken login'e atmaz. Sadece gercekten oturum yoksa
+    // (logout sonrasi SecureStore'daki SHA silinmistir → restoreSession false doner) login'e gider.
+    if(status !== 'authed' && status !== 'loading' && !inAuth && !inSetup)
     {
       void restoreSession().then((ok) =>
       {
@@ -40,15 +45,13 @@ function AppGate()
       });
       return;
     }
-    if(status !== 'authed' && !inAuth && !inSetup && status !== 'loading')
+    if(status === 'authed' && (inAuth || inSetup || segments[0] === undefined))
     {
-      router.replace('/(auth)/login');
-    }
-    else if(status === 'authed' && (inAuth || inSetup || segments[0] === undefined))
-    {
+      const sector = useBootstrap.getState().sector;
       const menu = useAuth.getState().menuItems;
-      const first = menu[0]?.route ?? '/(main)/boss/pos';
-      router.replace(first as Href);
+      const target = menu.find((x) => x.sector === sector) ?? menu[0];
+      const route = target?.route ?? SECTOR_ROUTE[sector];
+      router.replace(route as Href);
     }
   }, [serverUrl, status, segments]);
   return (
@@ -78,7 +81,7 @@ export default function RootLayout()
       return;
     }
     const detachRefresh = attachPushTokenRefresh(serverUrl, username);
-    void checkForUpdate(serverUrl);
+    void checkForUpdate();
     const detachResponse = subscribeNotificationResponse((data) =>
     {
       router.push(resolveNotificationRoute(data));

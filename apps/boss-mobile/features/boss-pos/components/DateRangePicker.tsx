@@ -9,6 +9,7 @@ import {
   View
 } from 'react-native';
 import DateTimePicker, { type DateTimePickerEvent } from '@react-native-community/datetimepicker';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTranslation } from 'react-i18next';
 import {
   buildDatePresets,
@@ -39,6 +40,7 @@ type PickerTarget = 'start' | 'end' | null;
 export const DateRangePicker = memo(function DateRangePicker({ range, preset, busy, onApply, onRefresh }: Props)
 {
   const { t, i18n } = useTranslation();
+  const insets = useSafeAreaInsets();
   const dash = useTDash();
   const presetLabel = useBossPresetLabel();
   const pickerLocale = i18n.language === 'tr' ? 'tr-TR' : i18n.language === 'en' ? 'en-US' : 'fr-FR';
@@ -125,7 +127,7 @@ export const DateRangePicker = memo(function DateRangePicker({ range, preset, bu
       </View>
       <Modal visible={open} animationType="slide" transparent onRequestClose={() => setOpen(false)}>
         <Pressable style={styles.backdrop} onPress={() => setOpen(false)} />
-        <View style={styles.sheet}>
+        <View style={[styles.sheet, { paddingBottom: Math.max(insets.bottom + theme.space.md, theme.space.xxl) }]}>
           <View style={styles.handle} />
           <Text style={[textSharp, styles.sheetTitle]}>{dash('selectDateRange')}</Text>
           <Text style={[textSharp, styles.sheetSub]}>{dash('selectCompareDateHint')}</Text>

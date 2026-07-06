@@ -14,7 +14,7 @@ type Props = {
 export function AuthShell({ subtitle, children }: Props)
 {
   return (
-    <Screen keyboard bg={theme.color.brand} contentStyle={styles.grow}>
+    <Screen keyboard scroll bg={theme.color.brand} contentStyle={styles.grow}>
       <AuthHeader subtitle={subtitle} />
       <FadeInView offset={20} duration={420} style={styles.grow}>
         <FormCard>{children}</FormCard>

@@ -13,11 +13,9 @@
     "resolveJsonModule": true,
     "declaration": true,
     "sourceMap": true,
-    "ignoreDeprecations": "5.0",
-    "baseUrl": ".",
     "paths": {
-      "@piqboss/shared": ["packages/shared/src/index.ts"],
-      "@piqboss/shared/*": ["packages/shared/src/*"]
+      "@piqboss/shared": ["./packages/shared/src/index.ts"],
+      "@piqboss/shared/*": ["./packages/shared/src/*"]
     }
   },
   "exclude": ["node_modules", "dist", "build"]

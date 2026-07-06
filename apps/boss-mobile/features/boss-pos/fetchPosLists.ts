@@ -185,7 +185,8 @@ export async function loadButcherList(serverUrl: string, range: DateRange): Prom
     unchecked: num(r.UNCHECKED_COUNT),
     amount: num(r.TOTAL_AMOUNT),
     discount: num(r.TOTAL_DISCOUNT),
-    deleted: num(r.DELETED_COUNT)
+    deleted: num(r.DELETED_COUNT),
+    changeCount: num(r.CHANGE_COUNT)
   }));
 }
 

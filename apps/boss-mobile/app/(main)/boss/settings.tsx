@@ -13,7 +13,7 @@ import { ms } from '@/lib/responsive';
 import { useEmptyLabel } from '@/lib/uiText';
 import { theme } from '@/lib/theme';
 
-const LOGO = require('../../../assets/piqsoft-logo.png');
+const LOGO = require('../../../assets/icon.png');
 const PRESETS: DatePresetId[] = ['today', 'yesterday', 'thisWeek', 'lastWeek', 'thisMonth'];
 
 export default function BossSettings()
@@ -171,8 +171,9 @@ const styles = StyleSheet.create({
     color: theme.color.text
   },
   brandLogo: {
-    width: ms(170),
-    height: ms(58),
+    width: ms(72),
+    height: ms(72),
+    borderRadius: ms(16),
     marginBottom: theme.space.sm
   },
   brandTag: {

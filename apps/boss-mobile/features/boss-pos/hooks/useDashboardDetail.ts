@@ -2,7 +2,7 @@ import { useCallback, useState } from 'react';
 import type { PosDashboardSnapshot } from '@piqboss/shared';
 import type { DateRange } from '@/lib/dateRange';
 import { formatRangeLabel, getDatePreset } from '@/lib/dateRange';
-import { formatCurrency, formatNumber } from '@/lib/format';
+import { formatCurrency, formatNumber, formatQuantity } from '@/lib/format';
 import { exportDetailPdf } from '@/lib/pdfExport';
 import { shareToWhatsApp } from '@/lib/whatsapp';
 import i18n, { tDash } from '@/lib/i18n';
@@ -345,7 +345,7 @@ export function useDashboardDetail(
             rows: rows.slice(0, 80).map((r) => ({
               label: String(r.ITEM_NAME ?? r.ITEM_CODE ?? emptyLabel()),
               value: formatCurrency(num(r.MARGIN_HT)),
-              sub: `${String(r.ITEM_GRP_NAME ?? '')} · ${num(r.TOTAL_QUANTITY)} ${String(r.UNIT_SHORT ?? '')}`.trim(),
+              sub: `${String(r.ITEM_GRP_NAME ?? '')} · ${formatQuantity(num(r.TOTAL_QUANTITY))} ${String(r.UNIT_SHORT ?? '')}`.trim(),
               accent: '#DC2626'
             }))
           }]
@@ -386,13 +386,13 @@ export function useDashboardDetail(
       showDetailError(groupName, formatRangeLabel(range), e);
     }
   }, [openContent, openGroupLoss, range, serverUrl, showDetailError]);
-  const openButcherDetail = useCallback(async (weigherName: string) =>
+  const openButcherDetail = useCallback(async (weigherName: string, back?: DetailBack) =>
   {
     if(!serverUrl)
     {
       return;
     }
-    openContent({ title: weigherName, subtitle: formatRangeLabel(range), sections: [] }, true);
+    openContent({ title: weigherName, subtitle: formatRangeLabel(range), sections: [], back }, true);
     try
     {
       const rows = await fetchButcherChanges(serverUrl, range, weigherName);
@@ -402,13 +402,14 @@ export function useDashboardDetail(
         content: {
           title: weigherName,
           subtitle: formatRangeLabel(range),
+          back,
           sections: [{ title: tDash('butcherChanges'), rows: mapButcherChangeRows(rows), emptyText: tDash('noChanges') }]
         }
       });
     }
     catch(e)
     {
-      showDetailError(weigherName, formatRangeLabel(range), e);
+      showDetailError(weigherName, formatRangeLabel(range), e, back);
     }
   }, [openContent, range, serverUrl, showDetailError]);
   const openPromoDetail = useCallback(async () =>
@@ -487,7 +488,7 @@ export function useDashboardDetail(
           return {
             label: `${String(r.DOC_DATE ?? '').slice(0, 10)} · ${String(r.LUSER ?? emptyLabel())}`.trim(),
             value: formatCurrency(margin),
-            sub: `${num(r.QUANTITY)} × ${formatCurrency(num(r.PRICE))} · ${tDash('useDiscount')} ${formatCurrency(num(r.DISCOUNT))}`,
+            sub: `${formatQuantity(num(r.QUANTITY))} × ${formatCurrency(num(r.PRICE))} · ${tDash('useDiscount')} ${formatCurrency(num(r.DISCOUNT))}`,
             accent: margin < 0 ? '#DC2626' : undefined
           };
         })
@@ -517,7 +518,7 @@ export function useDashboardDetail(
         return {
           label: name,
           value: formatCurrency(num(r.MARGIN_HT)),
-          sub: `${String(r.ITEM_GRP_NAME ?? '')} · ${num(r.TOTAL_QUANTITY)} ${String(r.UNIT_SHORT ?? '')}`.trim(),
+          sub: `${String(r.ITEM_GRP_NAME ?? '')} · ${formatQuantity(num(r.TOTAL_QUANTITY))} ${String(r.UNIT_SHORT ?? '')}`.trim(),
           accent: '#DC2626',
           onPress: () => void openDiscountDetail(code, name, { label: title, onPress: () => void openAllLossItems() })
         };
@@ -621,7 +622,7 @@ export function useDashboardDetail(
           rows: rows.map((r) => ({
             label: String(r.DATE ?? emptyLabel()),
             value: formatCurrency(num(r.TOTAL_SALES)),
-            sub: `${num(r.TOTAL_QUANTITY)} ${tDash('quantity')}`
+            sub: `${formatQuantity(num(r.TOTAL_QUANTITY))} ${tDash('quantity')}`
           }))
         }]
       } });
@@ -649,7 +650,7 @@ export function useDashboardDetail(
           title: tDash('priceListByQuantity'),
           emptyText: tDash('noData'),
           rows: rows.map((r) => ({
-            label: `${String(r.DEPOT_NAME ?? emptyLabel())} · ${num(r.QUANTITY)}`,
+            label: `${String(r.DEPOT_NAME ?? emptyLabel())} · ${formatQuantity(num(r.QUANTITY))}`,
             value: formatCurrency(num(r.PRICE_TTC)),
             sub: `${tDash('salePrice')} ${formatCurrency(num(r.PRICE_HT))} · ${tDash('costPrice')} ${formatCurrency(num(r.COST_PRICE))}`
           }))
@@ -687,7 +688,7 @@ export function useDashboardDetail(
             rows: [
               { label: tDash('margin'), value: formatCurrency(margin), accent: margin < 0 ? '#DC2626' : undefined },
               { label: tDash('marginPercent'), value: `${num(d.MARGIN_PERCENT).toFixed(1)}%` },
-              { label: tDash('quantity'), value: `${num(d.TOTAL_QUANTITY)} ${String(d.UNIT_SHORT ?? '')}`.trim() },
+              { label: tDash('quantity'), value: `${formatQuantity(num(d.TOTAL_QUANTITY))} ${String(d.UNIT_SHORT ?? '')}`.trim() },
               { label: tDash('costPrice'), value: formatCurrency(num(d.COST_PRICE)) },
               { label: tDash('salePrice'), value: formatCurrency(num(d.PRICE)) }
             ]
@@ -743,7 +744,7 @@ export function useDashboardDetail(
             return {
               label: String(r.ITEM_NAME ?? r.ITEM_CODE ?? emptyLabel()),
               value: formatCurrency(num(r.AMOUNT)),
-              sub: `#${String(r.TICKET_NO ?? '')} · 🕒 ${created} · ${num(r.QUANTITY)} × ${formatCurrency(num(r.PRICE))}`,
+              sub: `#${String(r.TICKET_NO ?? '')} · 🕒 ${created} · ${formatQuantity(num(r.QUANTITY))} × ${formatCurrency(num(r.PRICE))}`,
               note: noteParts.length ? noteParts.join('    ') : undefined,
               accent: '#DC2626'
             };
@@ -779,7 +780,7 @@ export function useDashboardDetail(
             return {
               label: String(r.ITEM_NAME ?? r.ITEM_CODE ?? emptyLabel()),
               value: formatCurrency(num(r.AMOUNT)),
-              sub: `#${String(r.TICKET_NO ?? '')} · 🕒 ${String(r.TIME ?? '')} · ${num(r.QUANTITY)} × ${formatCurrency(num(r.PRICE))}`,
+              sub: `#${String(r.TICKET_NO ?? '')} · 🕒 ${String(r.TIME ?? '')} · ${formatQuantity(num(r.QUANTITY))} × ${formatCurrency(num(r.PRICE))}`,
               note: desc ? `👤 ${desc}` : undefined
             };
           })
@@ -861,9 +862,10 @@ export function useDashboardDetail(
       });
       const butcherRows = lists.butchers.map((b) => ({
         label: b.name,
-        value: formatNumber(b.unchecked),
+        value: formatNumber(b.changeCount),
         sub: `${formatCurrency(b.amount)} · ${tDash('useDiscount')} ${formatCurrency(b.discount)}`,
-        onPress: () => void openButcherDetail(b.name)
+        accent: b.changeCount > 0 ? '#2196F3' : undefined,
+        onPress: () => void openButcherDetail(b.name, self)
       }));
       setDrawer({ visible: true, loading: false, content: {
         title,

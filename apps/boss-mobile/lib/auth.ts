@@ -10,7 +10,8 @@ import { initSocketSession, emitLogin, resetSocket, setSocketLoginPayload, clear
 import { registerForPushNotifications, sendPushTokenToServer } from './pushNotifications';
 import { setForceLogoutHandler } from './general';
 import { clearCredentials, loadCredentials, saveCredentials } from './credentials';
-import { setActiveProfile, type ServerProfile } from './serverProfiles';
+import { setActiveProfile, loadActiveProfileId, loadServerProfiles, upsertServerProfile, type ServerProfile } from './serverProfiles';
+import { fetchLoginBootstrap } from './loginBootstrap';
 
 const AUTH_SHA_KEY = 'piqboss.authSha';
 
@@ -33,7 +34,7 @@ type AuthState = {
   status: 'idle' | 'loading' | 'authed' | 'error';
   login: (tenant: string, username: string, password: string, company?: { code: string; name: string }) => Promise<void>;
   restoreSession: () => Promise<boolean>;
-  switchMarket: (profile: ServerProfile) => Promise<{ ok: boolean; needLogin?: boolean; error?: string }>;
+  switchMarket: (profile: ServerProfile) => Promise<{ ok: boolean; needLogin?: boolean; error?: string; reverted?: boolean; revertedLabel?: string }>;
   logout: () => Promise<void>;
 };
 
@@ -109,6 +110,28 @@ async function afterLogin(serverUrl: string, row: GensrvUser, tenant: string): P
   return session;
 }
 
+async function resolveTenantForProfile(profile: ServerProfile, fallback = ''): Promise<string>
+{
+  if(profile.db?.trim())
+  {
+    return profile.db.trim();
+  }
+  const data = await fetchLoginBootstrap(profile.url);
+  if(data.databases.length > 0)
+  {
+    return data.databases.some((d) => d.code === data.db) ? data.db : data.databases[0].code;
+  }
+  return data.db || fallback;
+}
+async function persistProfileDb(profile: ServerProfile, tenant: string): Promise<void>
+{
+  if(!tenant || profile.db === tenant)
+  {
+    return;
+  }
+  await upsertServerProfile({ ...profile, db: tenant });
+}
+
 let restoreInFlight = false;
 
 export const useAuth = create<AuthState>((set) => ({
@@ -128,6 +151,7 @@ export const useAuth = create<AuthState>((set) => ({
       throw new Error('Sunucu adresi ayarlanmamis');
     }
     set({ status: 'loading' });
+    useBootstrap.getState().setSelectedDb(tenant ?? '');
     try
     {
       initSocketSession(serverUrl);
@@ -172,6 +196,7 @@ export const useAuth = create<AuthState>((set) => ({
     }
     restoreInFlight = true;
     set({ status: 'loading' });
+    useBootstrap.getState().setSelectedDb(tenant ?? '');
     try
     {
       setSocketLoginPayload([sha, 'BOSS', tenant ?? '']);
@@ -200,23 +225,30 @@ export const useAuth = create<AuthState>((set) => ({
   switchMarket: async (profile) =>
   {
     const cred = await loadCredentials();
-    resetSocket();
-    await setActiveProfile(profile);
-    useBootstrap.getState().setServerUrl(profile.url);
     if(!cred)
     {
       // Sifre saklanmamis (orn. sadece SHA ile restore edilmis) → o market icin giris ekrani
+      resetSocket();
+      await setActiveProfile(profile);
+      useBootstrap.getState().setServerUrl(profile.url);
       clearSocketLoginPayload();
       set({ status: 'idle', user: null, gensrvUser: null, companyName: null, menuItems: [], paramRows: [], accessRows: [] });
       return { ok: false, needLogin: true };
     }
-    set({ status: 'loading' });
-    const serverUrl = profile.url;
-    const tenant = profile.db || cred.tenant || '';
-    try
+    // Hata durumunda geri donebilmek icin onceki (son calisan) market.
+    const prevId = await loadActiveProfileId();
+    const prevProfile = prevId ? ((await loadServerProfiles()).find((p) => p.id === prevId) ?? null) : null;
+    const connect = async (target: ServerProfile) =>
     {
-      initSocketSession(serverUrl);
-      const rows = await emitLogin(serverUrl, [cred.username, cred.password, 'BOSS', tenant]);
+      const tenant = await resolveTenantForProfile(target, cred.tenant || '');
+      resetSocket();
+      await setActiveProfile(target);
+      useBootstrap.getState().setServerUrl(target.url);
+      useBootstrap.getState().setSector(target.module);
+      useBootstrap.getState().setSelectedDb(tenant);
+      await saveLastTenant(tenant);
+      initSocketSession(target.url);
+      const rows = await emitLogin(target.url, [cred.username, cred.password, 'BOSS', tenant]);
       const row = rows[0] as GensrvUser;
       assertBossAccess(row);
       if(row.SHA)
@@ -225,14 +257,34 @@ export const useAuth = create<AuthState>((set) => ({
       }
       await saveLastUsername(cred.username);
       void saveCredentials({ username: cred.username, password: cred.password, tenant });
-      const session = await afterLogin(serverUrl, row, tenant);
+      const session = await afterLogin(target.url, row, tenant);
+      await persistProfileDb(target, tenant);
       set({ ...session, status: 'authed' });
+    };
+    set({ status: 'loading' });
+    try
+    {
+      await connect(profile);
       return { ok: true };
     }
     catch(e)
     {
+      const error = (e as Error).message;
+      // Secilen markete gecilemedi → login'e dusurmeden (status 'loading' kalir) son calisan markete geri baglan.
+      if(prevProfile && prevProfile.id !== profile.id)
+      {
+        try
+        {
+          await connect(prevProfile);
+          return { ok: false, reverted: true, revertedLabel: prevProfile.label, error };
+        }
+        catch
+        {
+          // Geri baglanma da basarisiz → asagida error durumuna dusulur.
+        }
+      }
       set({ status: 'error' });
-      return { ok: false, error: (e as Error).message };
+      return { ok: false, error };
     }
   },
   logout: async () =>

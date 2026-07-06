@@ -1,21 +1,20 @@
-import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Image, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useTranslation } from 'react-i18next';
-import { f, ms } from '@/lib/responsive';
+import { ms } from '@/lib/responsive';
 import { theme } from '@/lib/theme';
+
+const LOGO = require('../../assets/icon.png');
 
 export function BootSplash()
 {
   const { t } = useTranslation();
-  const mark = t('lblLogin').slice(0, 1).toUpperCase();
   return (
     <SafeAreaView style={styles.root}>
       <View style={styles.bgCircleLarge} />
       <View style={styles.bgCircleSmall} />
       <View style={styles.center}>
-        <View style={styles.mark}>
-          <Text style={styles.markText}>{mark}</Text>
-        </View>
+        <Image source={LOGO} style={styles.logo} resizeMode="contain" />
         <Text style={styles.title}>{t('lblLogin')}</Text>
         <Text style={styles.subtitle}>{t('splash.title')}</Text>
         <ActivityIndicator style={styles.loader} color={theme.color.textOnPrimary} />
@@ -53,19 +52,11 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     paddingHorizontal: theme.space.xl
   },
-  mark: {
-    width: ms(72),
-    height: ms(72),
-    borderRadius: theme.radius.lg,
-    backgroundColor: 'rgba(255,255,255,0.16)',
-    alignItems: 'center',
-    justifyContent: 'center',
+  logo: {
+    width: ms(88),
+    height: ms(88),
+    borderRadius: ms(20),
     marginBottom: theme.space.lg
-  },
-  markText: {
-    color: theme.color.textOnPrimary,
-    fontSize: f(32),
-    fontWeight: '800'
   },
   title: {
     color: theme.color.textOnPrimary,

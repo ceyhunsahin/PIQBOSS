@@ -5,7 +5,7 @@ import { useTranslation } from 'react-i18next';
 import { ms } from '@/lib/responsive';
 import { theme } from '@/lib/theme';
 
-const LOGO = require('../../assets/piqsoft-logo.png');
+const LOGO = require('../../assets/icon.png');
 
 type Props = {
   title?: string;
@@ -22,9 +22,7 @@ export function AuthHeader({ subtitle }: Props)
         <View style={styles.bgCircleLarge} />
         <View style={styles.bgCircleSmall} />
         <View style={styles.inner}>
-          <View style={styles.logoCard}>
-            <Image source={LOGO} style={styles.logo} resizeMode="contain" />
-          </View>
+          <Image source={LOGO} style={styles.logo} resizeMode="contain" />
           <Text style={styles.subtitle}>{resolvedSubtitle}</Text>
         </View>
       </SafeAreaView>
@@ -68,16 +66,10 @@ const styles = StyleSheet.create({
     paddingBottom: theme.space.xl,
     gap: theme.space.sm
   },
-  logoCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: theme.radius.lg,
-    paddingHorizontal: theme.space.xl,
-    paddingVertical: theme.space.lg,
-    ...theme.shadow.card
-  },
   logo: {
-    width: ms(186),
-    height: ms(67)
+    width: ms(96),
+    height: ms(96),
+    borderRadius: ms(22)
   },
   subtitle: {
     color: theme.color.textOnPrimaryMuted,

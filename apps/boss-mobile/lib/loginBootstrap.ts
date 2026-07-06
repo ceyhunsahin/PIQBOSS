@@ -13,9 +13,23 @@ export type LoginBossUser = {
 type BootstrapResponse = {
   status?: string;
   msg?: string;
+  db?: string;
+  databases?: Array<{ CODE?: string; NAME?: string }>;
   companies?: Array<{ CODE?: string; NAME?: string }>;
   users?: Array<{ CODE?: string; NAME?: string; USER_APP?: string }>;
 };
+
+export type LoginDatabase = {
+  code: string;
+  name: string;
+};
+
+function mapDatabases(rows: BootstrapResponse['databases']): LoginDatabase[]
+{
+  return (rows ?? [])
+    .map((r) => ({ code: String(r.CODE ?? ''), name: String(r.NAME ?? r.CODE ?? '') }))
+    .filter((x) => x.code !== '');
+}
 
 function mapCompanies(rows: BootstrapResponse['companies']): LoginCompany[]
 {
@@ -32,7 +46,7 @@ function mapBossUsers(rows: BootstrapResponse['users']): LoginBossUser[]
     .filter((x) => x.code !== '');
 }
 
-export async function fetchLoginBootstrap(serverUrl: string): Promise<{ companies: LoginCompany[]; users: LoginBossUser[] }>
+export async function fetchLoginBootstrap(serverUrl: string, db?: string): Promise<{ companies: LoginCompany[]; users: LoginBossUser[]; db: string; databases: LoginDatabase[] }>
 {
   const url = serverUrl.replace(/\/+$/, '');
   const socket = initSocketSession(url);
@@ -40,7 +54,7 @@ export async function fetchLoginBootstrap(serverUrl: string): Promise<{ companie
   const res = await new Promise<BootstrapResponse>((resolve, reject) =>
   {
     const timeout = setTimeout(() => reject(new Error('login bootstrap timeout')), 30000);
-    socket.emit('mobile-login-bootstrap', {}, (payload: BootstrapResponse) =>
+    socket.emit('mobile-login-bootstrap', { db: db ?? '' }, (payload: BootstrapResponse) =>
     {
       clearTimeout(timeout);
       resolve(payload ?? {});
@@ -50,7 +64,9 @@ export async function fetchLoginBootstrap(serverUrl: string): Promise<{ companie
   {
     return {
       companies: mapCompanies(res.companies),
-      users: mapBossUsers(res.users)
+      users: mapBossUsers(res.users),
+      db: String(res.db ?? ''),
+      databases: mapDatabases(res.databases)
     };
   }
   throw new Error(String(res.msg ?? 'login bootstrap failed'));
